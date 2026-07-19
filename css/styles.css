@@ -267,6 +267,32 @@
   grid-template-columns: 145px minmax(0, 1fr) 34px;
 }
 
+[data-commander-card='random'] {
+  border-color: rgba(80, 236, 255, 0.58);
+  box-shadow: 0 28px 80px #000, inset 0 0 34px rgba(58, 223, 255, 0.06), 0 0 28px rgba(58, 223, 255, 0.08);
+}
+
+[data-commander-card='random'] .commander-identity span,
+[data-commander-card='random'] .commander-info-button {
+  color: #62ecff;
+}
+
+[data-commander-card='random'] .commander-select-button {
+  border-color: rgba(80, 236, 255, 0.62);
+}
+
+.random-commander-description {
+  margin: 10px 0 0;
+  color: #a7cdb0;
+  font-size: 0.65rem;
+  line-height: 1.55;
+}
+
+.random-commander-portrait text,
+.random-commander-portrait path:last-of-type {
+  filter: drop-shadow(0 0 7px rgba(82, 255, 131, 0.5));
+}
+
 .commander-portrait svg {
   min-height: 330px;
 }

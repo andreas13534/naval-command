@@ -655,11 +655,40 @@
     }
 
     buildCommanderSelection() {
-      this.elements.commanderSelectionGrid.classList.toggle('many-commanders', CONFIG.commanders.length > 6);
-      this.elements.commanderSelectionGrid.innerHTML = CONFIG.commanders.map((commander) => {
+      const randomCommander = {
+        id: 'random',
+        name: 'Zufälliger Kapitän',
+        rank: 'Verschlüsselte Zuteilung // RANDOM',
+        portrait: 'random',
+        fleet: [],
+        abilities: [],
+        random: true,
+      };
+      const commanderOptions = [randomCommander, ...CONFIG.commanders];
+      this.elements.commanderSelectionGrid.classList.toggle('many-commanders', commanderOptions.length > 6);
+      this.elements.commanderSelectionGrid.innerHTML = commanderOptions.map((commander) => {
         const fleet = commander.fleet
           .map((shipId) => CONFIG.ships.find((ship) => ship.id === shipId))
           .filter(Boolean);
+        const details = commander.random
+          ? `
+              <div>
+                <strong>ZUFALLSAUSWAHL</strong>
+                <p class="random-commander-description">Das System weist dir beim Übernehmen zufällig einen vollständig ausgerüsteten Kapitän zu.</p>
+              </div>
+              <div>
+                <strong>AUSGESCHLOSSEN</strong>
+                <ul><li>Standard-Kommandant</li><li>#Test-Platzhalter</li></ul>
+              </div>`
+          : `
+              <div>
+                <strong>FLOTTE</strong>
+                <ul>${fleet.map((ship) => `<li>${ship.name}<span>${this.formatShipSize(ship)}</span></li>`).join('')}</ul>
+              </div>
+              <div>
+                <strong>FÄHIGKEITEN</strong>
+                <ul>${commander.abilities.map((ability) => `<li>${ability.name}<span>${ability.cost} Punkte</span><small>${ability.description}</small></li>`).join('')}</ul>
+              </div>`;
         return `
           <article class="commander-card" data-commander-card="${commander.id}">
             <div class="commander-portrait" aria-label="Porträt ${commander.name}, ${commander.rank}">
@@ -673,21 +702,35 @@
             <button class="commander-info-button" type="button" data-commander-info="${commander.id}" aria-expanded="false" aria-label="Informationen zu ${commander.name}">i</button>
             <div class="commander-details" data-commander-details="${commander.id}" hidden>
               <button class="commander-details-close" type="button" data-commander-details-close="${commander.id}" aria-label="Informationen schließen">×</button>
-              <div>
-                <strong>FLOTTE</strong>
-                <ul>${fleet.map((ship) => `<li>${ship.name}<span>${this.formatShipSize(ship)}</span></li>`).join('')}</ul>
-              </div>
-              <div>
-                <strong>FÄHIGKEITEN</strong>
-                <ul>${commander.abilities.map((ability) => `<li>${ability.name}<span>${ability.cost} Punkte</span><small>${ability.description}</small></li>`).join('')}</ul>
-              </div>
+              ${details}
             </div>
-            <button class="primary-button commander-select-button" type="button" data-select-commander="${commander.id}" aria-label="${commander.name}, ${commander.rank} übernehmen">KOMMANDO ÜBERNEHMEN</button>
+            <button class="primary-button commander-select-button" type="button" data-select-commander="${commander.id}" aria-label="${commander.name}, ${commander.rank} übernehmen">${commander.random ? 'ZUFALL STARTEN' : 'KOMMANDO ÜBERNEHMEN'}</button>
           </article>`;
       }).join('');
     }
 
     createCommanderPortrait(commander) {
+      if (commander.random) {
+        return `
+          <svg class="random-commander-portrait" viewBox="0 0 320 390" role="img" aria-label="Zufällige Kapitänsauswahl">
+            <defs>
+              <radialGradient id="random-radar" cx="50%" cy="45%" r="65%">
+                <stop offset="0" stop-color="#0d432b"/><stop offset="1" stop-color="#010704"/>
+              </radialGradient>
+            </defs>
+            <rect width="320" height="390" fill="url(#random-radar)"/>
+            <g opacity=".24" stroke="#40ff76" fill="none">
+              <circle cx="160" cy="175" r="122"/><circle cx="160" cy="175" r="82"/><circle cx="160" cy="175" r="42"/>
+              <path d="M18 175H302M160 33V317M60 75L260 275M260 75L60 275"/>
+            </g>
+            <path d="M95 320Q105 258 145 247H175Q215 258 225 320Z" fill="#263d31" stroke="#6dff94" stroke-width="3"/>
+            <circle cx="160" cy="190" r="49" fill="#50675a" stroke="#a5ffba" stroke-width="3"/>
+            <text x="160" y="212" text-anchor="middle" fill="#52ff83" font-family="monospace" font-size="76" font-weight="700">?</text>
+            <path d="M62 350H258M246 338L258 350L246 362M74 326L62 338L74 350" fill="none" stroke="#52ff83" stroke-width="5"/>
+            <text x="18" y="28" fill="#55ff82" font-family="monospace" font-size="11">ID://ENCRYPTED</text>
+            <text x="205" y="380" fill="#55ff82" font-family="monospace" font-size="10">SHUFFLE</text>
+          </svg>`;
+      }
       if (commander.portraitAsset) {
         return `<img src="${commander.portraitAsset}" alt="${commander.name}, ${commander.rank}" loading="eager" decoding="async">`;
       }
@@ -743,12 +786,14 @@
       if (!selectButton) return;
       const commanderId = selectButton.dataset.selectCommander;
       if (!this.game.setCommander(commanderId)) return;
-      this.selectedCommanderId = commanderId;
+      const resolvedCommanderId = this.game.commanderId;
+      this.selectedCommanderId = resolvedCommanderId;
       this.audio.sonar();
       if (this.multiplayer.active) {
-        const accepted = await this.sendMultiplayerCommand('select-commander', { commanderId });
+        const accepted = await this.sendMultiplayerCommand('select-commander', { commanderId: resolvedCommanderId });
         if (!accepted) return;
       }
+      if (commanderId === 'random') this.showToast(`ZUFALLSZUTEILUNG // ${this.game.activeCommander.name.toUpperCase()}`);
       this.enterPlacement();
     }
 

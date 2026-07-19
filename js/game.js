@@ -221,10 +221,17 @@
       return true;
     }
 
-    setCommander(commanderId) {
-      const commander = this.config.commanders.find((candidate) => candidate.id === commanderId);
+    setCommander(commanderId, random = Math.random) {
+      let resolvedId = commanderId;
+      if (commanderId === 'random') {
+        const candidates = this.config.randomCommanderIds || [];
+        if (candidates.length === 0) return false;
+        const index = Math.min(candidates.length - 1, Math.max(0, Math.floor(random() * candidates.length)));
+        resolvedId = candidates[index];
+      }
+      const commander = this.config.commanders.find((candidate) => candidate.id === resolvedId);
       if (!commander) return false;
-      this.commanderId = commanderId;
+      this.commanderId = resolvedId;
       return true;
     }
 

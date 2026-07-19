@@ -192,6 +192,25 @@ function testPortraitCommanderPlaceholders() {
   }
 }
 
+function testRandomCommanderSelection() {
+  const eligible = CONFIG.commanders.filter((commander) => commander.id !== 'standard' && commander.name !== '#Test');
+  assert.deepEqual(CONFIG.randomCommanderIds, eligible.map((commander) => commander.id));
+  assert.equal(CONFIG.randomCommanderIds.includes('standard'), false);
+  assert.equal(CONFIG.randomCommanderIds.some((id) => CONFIG.commanders.find((commander) => commander.id === id)?.name === '#Test'), false);
+
+  const firstGame = new BattleshipGame(CONFIG);
+  firstGame.reset();
+  firstGame.setMode('commander');
+  assert.equal(firstGame.setCommander('random', () => 0), true);
+  assert.equal(firstGame.commanderId, CONFIG.randomCommanderIds[0]);
+
+  const lastGame = new BattleshipGame(CONFIG);
+  lastGame.reset();
+  lastGame.setMode('commander');
+  assert.equal(lastGame.setCommander('random', () => 0.999999), true);
+  assert.equal(lastGame.commanderId, CONFIG.randomCommanderIds.at(-1));
+}
+
 function testCrossJetAndSignalJammer() {
   const makeGame = () => {
     const game = new BattleshipGame(CONFIG);
@@ -912,6 +931,7 @@ testGameFlowAndVictory();
 testDefeatAndTurnProtection();
 testCommanderPointsAndAbilities();
 testPortraitCommanderPlaceholders();
+testRandomCommanderSelection();
 testVossScannerAndRepair();
 testKwonChemicalBombAndMineLayer();
 testGravesRelocationAndNuclearStrike();

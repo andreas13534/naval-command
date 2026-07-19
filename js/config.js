@@ -428,11 +428,16 @@
     ...TEST_COMMANDERS,
   ]);
 
+  const RANDOM_COMMANDER_IDS = Object.freeze(COMMANDERS
+    .filter((commander) => commander.id !== 'standard' && commander.name !== '#Test')
+    .map((commander) => commander.id));
+
   const CONFIG = Object.freeze({
     gridSize: 10,
     ships: SHIPS,
     classicFleet: CLASSIC_FLEET,
     commanders: COMMANDERS,
+    randomCommanderIds: RANDOM_COMMANDER_IDS,
     columns: Object.freeze(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']),
     aiDelayMs: 620,
     future: Object.freeze({
