@@ -154,6 +154,8 @@ html.mobile-layout .many-commanders .commander-identity h3 {
 
 html.mobile-layout .commander-info-button,
 html.mobile-layout .many-commanders .commander-info-button {
+  display: grid;
+  place-items: center;
   position: static;
   grid-column: 3;
   grid-row: 1;

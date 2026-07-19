@@ -21,11 +21,6 @@
   ]);
 
   const CLASSIC_FLEET = Object.freeze(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer']);
-  const DEBUG_FLEET = Object.freeze([
-    'patrol-interceptor', 'destroyer', 'rapid-corvette', 'torpedo-cutter', 'missile-boat', 'fast-destroyer', 'submarine', 'cruiser',
-    'heavy-missile-cruiser', 'battleship', 'amphibious-landing-ship', 'carrier',
-    'experimental-command-ship', 'square-catamaran', 'fork-ship', 'floating-fortress',
-  ]);
 
   const STANDARD_ABILITIES = Object.freeze([
     Object.freeze({
@@ -235,6 +230,58 @@
     }),
   ]);
 
+  const VALE_FLEET = Object.freeze(['square-catamaran', 'heavy-missile-cruiser', 'fast-destroyer']);
+  const VALE_ABILITIES = Object.freeze([
+    Object.freeze({
+      id: 'flame-missile',
+      name: 'Flammenrakete',
+      shortName: 'FLAMME ×3',
+      cost: 6,
+      pattern: 'diagonal-flame',
+      target: 'enemy',
+      animationId: 'ignis-flame-missile',
+      grantsMissPoints: false,
+      description: 'Beschießt drei Felder diagonal. Die Richtung kann zwischen \\ und / gewechselt werden; an Rändern bleibt das Muster vollständig im Raster.',
+    }),
+    Object.freeze({
+      id: 'scan-shot',
+      name: 'Scanschuss',
+      shortName: 'SCAN-SCHUSS',
+      cost: 6,
+      pattern: 'scan-shot',
+      target: 'enemy',
+      animationId: 'ignis-scan-shot',
+      grantsMissPoints: false,
+      description: 'Trifft das gewählte Zentrum. Angrenzendes Wasser wird markiert; angrenzende Schiffsfelder erhalten nur einen anonymen Kontaktindikator und keinen Schaden.',
+    }),
+  ]);
+
+  const CROSS_FLEET = Object.freeze(['carrier', 'fork-ship', 'patrol-interceptor']);
+  const CROSS_ABILITIES = Object.freeze([
+    Object.freeze({
+      id: 'jet-launch',
+      name: 'Jet Start',
+      shortName: 'JET START',
+      cost: 8,
+      pattern: 'jet-launch',
+      target: 'automatic',
+      animationId: 'raptor-jet-launch',
+      grantsMissPoints: false,
+      description: 'Startet einmalig einen verborgenen Jet vom aktiven Flugzeugträger. Er wechselt nach jedem gegnerischen Schuss sein freies Wasserfeld und muss zusätzlich zur Flotte getroffen werden.',
+    }),
+    Object.freeze({
+      id: 'signal-jammer',
+      name: 'Störsender',
+      shortName: 'STÖRSENDER',
+      cost: 3,
+      pattern: 'jammer',
+      target: 'automatic',
+      animationId: 'raptor-signal-jammer',
+      grantsMissPoints: false,
+      description: 'Sperrt im nächsten gegnerischen Zug alle Fähigkeiten. Ein normaler Schuss bleibt möglich und verbraucht die Störung.',
+    }),
+  ]);
+
   const TEST_PORTRAITS = Object.freeze([
     '01-male-veteran-commander.png',
     '02-male-tactical-analyst.png',
@@ -336,6 +383,28 @@
         abilities: OKAFOR_ABILITIES,
       });
     }
+    if (index === 7) {
+      return Object.freeze({
+        id: 'captain-lucian-vale',
+        name: 'Kapitän Lucian Vale',
+        rank: 'Präzisionskommando // IGNIS',
+        portrait: 'lucian-vale',
+        portraitAsset: `assets/captain-portraits/${fileName}`,
+        fleet: VALE_FLEET,
+        abilities: VALE_ABILITIES,
+      });
+    }
+    if (index === 8) {
+      return Object.freeze({
+        id: 'captain-imani-cross',
+        name: 'Kapitän Imani Cross',
+        rank: 'Trägerluftgruppe & Elektronische Kampfführung // RAPTOR',
+        portrait: 'imani-cross',
+        portraitAsset: `assets/captain-portraits/${fileName}`,
+        fleet: CROSS_FLEET,
+        abilities: CROSS_ABILITIES,
+      });
+    }
     return Object.freeze({
       id: `test-captain-${number}`,
       name: '#Test',
@@ -355,35 +424,6 @@
       portrait: 'standard',
       fleet: CLASSIC_FLEET,
       abilities: STANDARD_ABILITIES,
-    }),
-    Object.freeze({
-      id: 'debug',
-      name: 'TEST/DEBUG-Kommandant',
-      rank: 'Systemdiagnose // DEV',
-      portrait: 'debug',
-      fleet: DEBUG_FLEET,
-      abilities: Object.freeze([
-        Object.freeze({
-          id: 'square-barrage',
-          name: '2×2-Sperrfeuer',
-          shortName: 'QUADRAT 2×2',
-          cost: 1,
-          pattern: 'square',
-          animationId: 'square-barrage',
-          grantsMissPoints: false,
-          description: 'Debug-Version: vier Felder im 2×2-Zielbereich für nur einen Punkt.',
-        }),
-        Object.freeze({
-          id: 'line-strike',
-          name: 'Dreier-Linienfeuer',
-          shortName: 'LINIE ×3',
-          cost: 1,
-          pattern: 'line',
-          animationId: 'line-strike',
-          grantsMissPoints: false,
-          description: 'Debug-Version: drei Felder in einer Linie für nur einen Punkt.',
-        }),
-      ]),
     }),
     ...TEST_COMMANDERS,
   ]);

@@ -33,6 +33,10 @@
     }
 
     getResultKind(results) {
+      if (results.some((result) => result.type === 'jet-launched')) return 'jet-launched';
+      if (results.some((result) => result.type === 'jammer-active')) return 'jammer-active';
+      if (results.some((result) => result.type === 'jet-hit')) return 'jet-hit';
+      if (results.some((result) => result.type === 'scan-shot-result')) return 'scan-shot-result';
       if (results.some((result) => result.type === 'last-revenge-armed')) return 'last-revenge-armed';
       if (results.some((result) => result.type === 'sacrificed')) return 'sacrificed';
       if (results.some((result) => result.type === 'ship-purchased')) return 'ship-purchased';
@@ -57,10 +61,12 @@
       const presetMessage = preset.resultMessages?.[attacker]?.[kind];
       if (presetMessage) return presetMessage;
       if (attacker === 'player') {
+        if (kind === 'jet-hit') return 'HOSTILE RAPTOR JET DESTROYED';
         if (kind === 'sunk') return 'ENEMY VESSEL DESTROYED';
         if (kind === 'hit') return 'DIRECT HIT';
         return 'IMPACT: OPEN WATER';
       }
+      if (kind === 'jet-hit') return 'FRIENDLY RAPTOR JET LOST';
       if (kind === 'sunk') return 'FRIENDLY VESSEL LOST';
       if (kind === 'hit') return 'FRIENDLY VESSEL HIT';
       return 'INCOMING ATTACK MISSED';
@@ -1291,6 +1297,242 @@
       }
     }
 
+    drawFlameDiagonalScene(context, sourceImage, width, height, elapsed, normalized, impactProgress, enemy) {
+      this.drawSea(context, width, height, elapsed, enemy);
+      const scene = this.getSceneLayout(width, height, enemy);
+      const direction = enemy ? -1 : 1;
+      const sourceX = scene.sourceX;
+      const sourceY = scene.sourceY;
+      const targetX = scene.portrait ? width * (enemy ? 0.25 : 0.75) : scene.targetX;
+      const targetY = scene.targetY;
+      const flight = Math.min(1, normalized / 0.66);
+      this.drawShip(context, sourceImage, sourceX, sourceY, width * (scene.portrait ? 0.7 : 0.5), enemy, Math.max(0.25, 1 - normalized * 0.5));
+
+      context.save();
+      context.globalCompositeOperation = 'lighter';
+      for (let index = 0; index < 3; index += 1) {
+        const diagonalOffset = (index - 1) * Math.min(width, height) * 0.11;
+        const startX = sourceX + direction * width * 0.05;
+        const startY = sourceY - height * 0.06;
+        const endX = targetX + direction * diagonalOffset * 0.38;
+        const endY = targetY + diagonalOffset;
+        const progress = Math.max(0, Math.min(1, flight * 1.16 - index * 0.08));
+        const x = startX + (endX - startX) * progress;
+        const y = startY + (endY - startY) * progress - Math.sin(progress * Math.PI) * height * 0.12;
+        context.strokeStyle = `rgba(255,112,28,${0.18 + progress * 0.56})`;
+        context.lineWidth = Math.max(2, width * 0.0035);
+        context.beginPath();
+        context.moveTo(startX, startY);
+        context.quadraticCurveTo((startX + endX) / 2, Math.min(startY, endY) - height * 0.2, x, y);
+        context.stroke();
+        const glow = context.createRadialGradient(x, y, 0, x, y, Math.max(8, width * 0.025));
+        glow.addColorStop(0, 'rgba(255,255,214,.98)');
+        glow.addColorStop(0.24, 'rgba(255,186,48,.94)');
+        glow.addColorStop(0.62, 'rgba(255,60,12,.58)');
+        glow.addColorStop(1, 'rgba(255,35,4,0)');
+        context.fillStyle = glow;
+        context.beginPath();
+        context.arc(x, y, Math.max(8, width * 0.025), 0, Math.PI * 2);
+        context.fill();
+        if (impactProgress > 0) {
+          const radius = Math.min(width, height) * (0.04 + impactProgress * 0.11);
+          const blast = context.createRadialGradient(endX, endY, 0, endX, endY, radius);
+          blast.addColorStop(0, `rgba(255,255,220,${1 - impactProgress * 0.4})`);
+          blast.addColorStop(0.25, `rgba(255,155,35,${0.95 - impactProgress * 0.5})`);
+          blast.addColorStop(1, 'rgba(255,36,8,0)');
+          context.fillStyle = blast;
+          context.beginPath();
+          context.arc(endX, endY, radius, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+      context.restore();
+      this.drawHud(context, width, height, elapsed, enemy);
+    }
+
+    drawScanShotScene(context, sourceImage, width, height, elapsed, normalized, impactProgress, enemy, result) {
+      const scene = this.getSceneLayout(width, height, enemy);
+      const centerX = scene.portrait ? width * (enemy ? 0.32 : 0.68) : scene.targetX;
+      const centerY = scene.targetY;
+      const gridSize = Math.min(width * (scene.portrait ? 0.48 : 0.34), height * 0.42, 390);
+      const cellSize = gridSize / 3;
+      this.drawSea(context, width, height, elapsed, enemy);
+      this.drawShip(context, sourceImage, scene.sourceX, scene.sourceY, width * (scene.portrait ? 0.62 : 0.43), enemy, Math.max(0.2, 1 - normalized * 0.65));
+
+      context.save();
+      context.translate(centerX - gridSize / 2, centerY - gridSize / 2);
+      context.fillStyle = 'rgba(1,20,19,.72)';
+      context.fillRect(0, 0, gridSize, gridSize);
+      context.strokeStyle = 'rgba(81,255,188,.7)';
+      context.lineWidth = 1;
+      for (let index = 0; index <= 3; index += 1) {
+        context.beginPath();
+        context.moveTo(index * cellSize, 0);
+        context.lineTo(index * cellSize, gridSize);
+        context.moveTo(0, index * cellSize);
+        context.lineTo(gridSize, index * cellSize);
+        context.stroke();
+      }
+      const sweepAngle = elapsed * 0.0036;
+      context.translate(gridSize / 2, gridSize / 2);
+      context.rotate(sweepAngle);
+      const sweep = context.createLinearGradient(0, 0, gridSize * 0.5, 0);
+      sweep.addColorStop(0, 'rgba(91,255,202,.02)');
+      sweep.addColorStop(1, 'rgba(91,255,202,.62)');
+      context.fillStyle = sweep;
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.arc(0, 0, gridSize * 0.5, -0.28, 0.28);
+      context.closePath();
+      context.fill();
+      context.restore();
+
+      const flight = Math.min(1, normalized / 0.65);
+      const projectileX = scene.sourceX + (centerX - scene.sourceX) * flight;
+      const projectileY = scene.sourceY + (centerY - scene.sourceY) * flight - Math.sin(flight * Math.PI) * height * 0.1;
+      context.save();
+      context.globalCompositeOperation = 'lighter';
+      const probeGlow = context.createRadialGradient(projectileX, projectileY, 0, projectileX, projectileY, Math.max(10, width * 0.022));
+      probeGlow.addColorStop(0, 'rgba(230,255,248,1)');
+      probeGlow.addColorStop(0.3, 'rgba(70,255,210,.9)');
+      probeGlow.addColorStop(1, 'rgba(25,220,255,0)');
+      context.fillStyle = probeGlow;
+      context.beginPath();
+      context.arc(projectileX, projectileY, Math.max(10, width * 0.022), 0, Math.PI * 2);
+      context.fill();
+      if (impactProgress > 0) {
+        for (let ring = 1; ring <= 4; ring += 1) {
+          context.strokeStyle = `rgba(${ring % 2 ? '70,255,205' : '255,195,76'},${Math.max(0, 0.82 - impactProgress * 0.62)})`;
+          context.lineWidth = 2;
+          context.beginPath();
+          context.arc(centerX, centerY, impactProgress * gridSize * 0.18 * ring, 0, Math.PI * 2);
+          context.stroke();
+        }
+      }
+      context.restore();
+
+      if (normalized > 0.66) {
+        const contacts = Number(result?.contactsMarked) || 0;
+        const water = Number(result?.waterMarked) || 0;
+        context.save();
+        context.textAlign = 'center';
+        context.font = `700 ${Math.max(12, Math.min(width, height) * 0.026)}px monospace`;
+        context.fillStyle = '#ffd273';
+        context.fillText(`CONTACTS // ${contacts}`, centerX, centerY + gridSize * 0.68);
+        context.fillStyle = '#79ffd1';
+        context.fillText(`WATER // ${water}`, centerX, centerY + gridSize * 0.68 + Math.max(18, height * 0.035));
+        context.restore();
+      }
+      this.drawHud(context, width, height, elapsed, enemy);
+    }
+
+    drawJetLaunchScene(context, sourceImage, width, height, elapsed, normalized, impactProgress, enemy) {
+      const scene = this.getSceneLayout(width, height, enemy);
+      this.drawSea(context, width, height, elapsed, enemy);
+      const deckX = scene.portrait ? width * 0.5 : scene.sourceX;
+      const deckY = height * 0.68;
+      this.drawShip(context, sourceImage, deckX, deckY, width * (scene.portrait ? 0.88 : 0.58), enemy, 0.95);
+
+      const flight = Math.min(1, Math.max(0, (normalized - 0.08) / 0.72));
+      const direction = enemy ? -1 : 1;
+      const startX = deckX - direction * width * 0.04;
+      const endX = deckX + direction * width * (scene.portrait ? 0.56 : 0.46);
+      const startY = deckY - height * 0.05;
+      const endY = height * 0.22;
+      const jetX = startX + (endX - startX) * flight;
+      const jetY = startY + (endY - startY) * flight - Math.sin(flight * Math.PI) * height * 0.12;
+      const angle = Math.atan2(endY - startY, endX - startX);
+
+      context.save();
+      context.globalCompositeOperation = 'lighter';
+      const trail = context.createLinearGradient(startX, startY, jetX, jetY);
+      trail.addColorStop(0, 'rgba(44,255,175,0)');
+      trail.addColorStop(1, 'rgba(100,255,212,.9)');
+      context.strokeStyle = trail;
+      context.lineWidth = Math.max(2, width * 0.004);
+      context.beginPath();
+      context.moveTo(startX, startY);
+      context.lineTo(jetX, jetY);
+      context.stroke();
+      context.translate(jetX, jetY);
+      context.rotate(angle);
+      const jetSize = Math.max(18, Math.min(width, height) * 0.055);
+      context.shadowColor = '#55ffd0';
+      context.shadowBlur = 24;
+      context.fillStyle = '#d8fff2';
+      context.beginPath();
+      context.moveTo(jetSize, 0);
+      context.lineTo(-jetSize * 0.55, -jetSize * 0.18);
+      context.lineTo(-jetSize * 0.15, -jetSize * 0.62);
+      context.lineTo(-jetSize * 0.7, -jetSize * 0.54);
+      context.lineTo(-jetSize, 0);
+      context.lineTo(-jetSize * 0.7, jetSize * 0.54);
+      context.lineTo(-jetSize * 0.15, jetSize * 0.62);
+      context.lineTo(-jetSize * 0.55, jetSize * 0.18);
+      context.closePath();
+      context.fill();
+      context.restore();
+
+      if (impactProgress > 0) {
+        context.save();
+        context.strokeStyle = `rgba(80,255,192,${Math.max(0, 1 - impactProgress * 0.65)})`;
+        context.lineWidth = 2;
+        const centerX = width * 0.5;
+        const centerY = height * 0.38;
+        for (let ring = 1; ring <= 4; ring += 1) {
+          context.beginPath();
+          context.arc(centerX, centerY, impactProgress * ring * Math.min(width, height) * 0.12, 0, Math.PI * 2);
+          context.stroke();
+        }
+        context.restore();
+      }
+      this.drawHud(context, width, height, elapsed, enemy);
+    }
+
+    drawSignalJammerScene(context, width, height, elapsed, normalized, impactProgress, enemy) {
+      const gradient = context.createRadialGradient(width * 0.5, height * 0.5, 0, width * 0.5, height * 0.5, Math.max(width, height) * 0.7);
+      gradient.addColorStop(0, enemy ? '#30110d' : '#06352b');
+      gradient.addColorStop(0.5, '#031413');
+      gradient.addColorStop(1, '#010405');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+      const spacing = Math.max(28, Math.min(width, height) * 0.075);
+      context.save();
+      context.strokeStyle = enemy ? 'rgba(255,88,57,.22)' : 'rgba(77,255,190,.24)';
+      for (let x = (elapsed * 0.03) % spacing; x < width; x += spacing) {
+        context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke();
+      }
+      for (let y = 0; y < height; y += spacing) {
+        context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
+      }
+      const centerX = width * 0.5;
+      const centerY = height * 0.5;
+      for (let ring = 1; ring <= 5; ring += 1) {
+        const radius = ((normalized * 1.8 + ring / 5) % 1) * Math.min(width, height) * 0.48;
+        context.strokeStyle = `rgba(${enemy ? '255,92,62' : '72,255,188'},${0.75 - radius / Math.min(width, height)})`;
+        context.lineWidth = 2;
+        context.beginPath(); context.arc(centerX, centerY, radius, 0, Math.PI * 2); context.stroke();
+      }
+      context.font = `800 ${Math.max(42, Math.min(width, height) * 0.16)}px monospace`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = enemy ? '#ff6547' : '#5cffbe';
+      context.shadowColor = context.fillStyle;
+      context.shadowBlur = 28;
+      context.fillText('ECM', centerX + Math.sin(elapsed * 0.09) * 5, centerY);
+      if (impactProgress > 0) {
+        context.font = `700 ${Math.max(14, Math.min(width, height) * 0.035)}px monospace`;
+        context.fillText('ABILITY CHANNELS // LOCKED', centerX, centerY + Math.min(width, height) * 0.16);
+      }
+      context.globalAlpha = 0.16;
+      for (let band = 0; band < 9; band += 1) {
+        const y = (elapsed * (0.09 + band * 0.012) + band * 73) % height;
+        context.fillRect(0, y, width, 2 + (band % 3));
+      }
+      context.restore();
+      this.drawHud(context, width, height, elapsed, enemy);
+    }
+
     drawHud(context, width, height, elapsed, enemy) {
       const scene = this.getSceneLayout(width, height, enemy);
       context.save();
@@ -1317,6 +1559,7 @@
       const results = options.results || [];
       const kind = this.getResultKind(results);
       const rangeResult = results.find((result) => result.type === 'range-result');
+      const scanShotResult = results.find((result) => result.type === 'scan-shot-result');
       const attacker = options.attacker;
       const enemy = attacker === 'enemy';
       const preset = this.registry.get(options.animationId);
@@ -1349,6 +1592,10 @@
         procurement: 'LEDGER TACTICAL DRYDOCK',
         'hydrogen-field': 'PROMETHEUS FUSION COMMAND',
         'last-revenge': 'PROMETHEUS TERMINAL CONTROL',
+        'flame-diagonal': 'IGNIS THERMAL FIRE CONTROL',
+        'scan-shot': 'IGNIS ACTIVE PROBE NETWORK',
+        'jet-launch': 'RAPTOR FLIGHT CONTROL',
+        'signal-jammer': 'RAPTOR ELECTRONIC WARFARE',
       };
       this.sideElement.textContent = sceneLabels[preset.scene] || (enemy ? 'ENEMY WEAPON LAUNCH DETECTED' : 'FIRE CONTROL ACTIVE');
       const defaultOrder = enemy && preset.id === 'standard-missile' ? 'INCOMING MISSILE' : preset.orderLabel;
@@ -1357,10 +1604,10 @@
         abilityName: options.ability?.name,
         target: coordinateText,
       });
-      const coordinateLabels = { scanner: 'SECTOR', repair: 'HULL', chemical: 'VECTOR', mine: 'ANCHOR', relocation: 'DESTINATION', nuclear: 'GROUND ZERO', rangefinder: 'MEASURE POINT', barrage: 'RANDOMIZED GRID', 'torpedo-row': 'HORIZONTAL ROW', submerge: 'PROTECTED VESSEL', sacrifice: 'CONVERSION TARGET', procurement: 'DEPLOYMENT ANCHOR', 'hydrogen-field': '4×4 SECTOR', 'last-revenge': 'SALVO STATUS' };
+      const coordinateLabels = { scanner: 'SECTOR', repair: 'HULL', chemical: 'VECTOR', mine: 'ANCHOR', relocation: 'DESTINATION', nuclear: 'GROUND ZERO', rangefinder: 'MEASURE POINT', barrage: 'RANDOMIZED GRID', 'torpedo-row': 'HORIZONTAL ROW', submerge: 'PROTECTED VESSEL', sacrifice: 'CONVERSION TARGET', procurement: 'DEPLOYMENT ANCHOR', 'hydrogen-field': '4×4 SECTOR', 'last-revenge': 'SALVO STATUS', 'jet-launch': 'ENCRYPTED ROUTE', 'signal-jammer': 'HOSTILE SPECTRUM' };
       this.coordinateElement.textContent = `${coordinateLabels[preset.scene] || 'TARGET'}: ${coordinateText}`;
       this.resultElement.textContent = '';
-      const rangeLabels = { scanner: 'ARRAY // SYNCHRONIZING', repair: 'DRONES // DEPLOYING', chemical: 'AGENT // SEALED', mine: 'FUSE // SAFE', relocation: 'MATRIX // LOCKED', nuclear: 'WARHEAD // ARMED', rangefinder: 'SOLUTION // PENDING', barrage: 'TARGETS // RANDOMIZED', 'torpedo-row': 'DEPTH // 040 M', submerge: 'BALLAST // FLOODING', sacrifice: 'ENERGY // CONVERTING', procurement: 'ASSEMBLY // QUEUED', 'hydrogen-field': 'FUSION CORE // ARMED', 'last-revenge': 'CHANNELS // 00/15' };
+      const rangeLabels = { scanner: 'ARRAY // SYNCHRONIZING', repair: 'DRONES // DEPLOYING', chemical: 'AGENT // SEALED', mine: 'FUSE // SAFE', relocation: 'MATRIX // LOCKED', nuclear: 'WARHEAD // ARMED', rangefinder: 'SOLUTION // PENDING', barrage: 'TARGETS // RANDOMIZED', 'torpedo-row': 'DEPTH // 040 M', submerge: 'BALLAST // FLOODING', sacrifice: 'ENERGY // CONVERTING', procurement: 'ASSEMBLY // QUEUED', 'hydrogen-field': 'FUSION CORE // ARMED', 'last-revenge': 'CHANNELS // 00/15', 'jet-launch': 'CATAPULT // PRESSURIZED', 'signal-jammer': 'ECM // CHARGING' };
       this.rangeElement.textContent = rangeLabels[preset.scene] || 'RANGE // 12.4 NM';
       requestAnimationFrame(() => this.element.classList.add('active'));
 
@@ -1378,6 +1625,10 @@
       else if (preset.scene === 'procurement') this.audio?.tone(360, 0.24, { type: 'square', volume: 0.07, endFrequency: 720 });
       else if (preset.scene === 'hydrogen-field') this.audio?.warning();
       else if (preset.scene === 'last-revenge') this.audio?.warning();
+      else if (preset.scene === 'flame-diagonal') this.audio?.warning();
+      else if (preset.scene === 'scan-shot') this.audio?.sonar();
+      else if (preset.scene === 'jet-launch') this.audio?.tone(190, 0.35, { type: 'sawtooth', volume: 0.09, endFrequency: 980 });
+      else if (preset.scene === 'signal-jammer') this.audio?.tone(820, 0.25, { type: 'square', volume: 0.07, endFrequency: 110 });
       else if (enemy) this.audio?.warning();
       else this.audio?.tone(690, 0.12, { type: 'square', volume: 0.1, endFrequency: 510 });
 
@@ -1399,7 +1650,7 @@
           context.clearRect(0, 0, width, height);
 
           const impactProgress = Math.max(0, (normalized - impactStart) / (1 - impactStart));
-          const specialScene = ['scanner', 'repair', 'chemical', 'mine', 'relocation', 'nuclear', 'rangefinder', 'barrage', 'torpedo-row', 'submerge', 'sacrifice', 'procurement', 'hydrogen-field', 'last-revenge'].includes(preset.scene);
+          const specialScene = ['scanner', 'repair', 'chemical', 'mine', 'relocation', 'nuclear', 'rangefinder', 'barrage', 'torpedo-row', 'submerge', 'sacrifice', 'procurement', 'hydrogen-field', 'last-revenge', 'flame-diagonal', 'scan-shot', 'jet-launch', 'signal-jammer'].includes(preset.scene);
           const shake = !specialScene && impactProgress > 0 && impactProgress < 0.45
             ? Math.sin(elapsed * 0.095) * (kind === 'miss' ? 2.5 : kind === 'sunk' ? 10 : 6) * preset.cameraShake * (1 - impactProgress)
             : 0;
@@ -1434,6 +1685,14 @@
             this.drawHydrogenFieldScene(context, width, height, elapsed, normalized, impactProgress);
           } else if (preset.scene === 'last-revenge') {
             this.drawLastRevengeScene(context, width, height, elapsed, normalized, impactProgress);
+          } else if (preset.scene === 'flame-diagonal') {
+            this.drawFlameDiagonalScene(context, sourceImage, width, height, elapsed, normalized, impactProgress, enemy);
+          } else if (preset.scene === 'scan-shot') {
+            this.drawScanShotScene(context, sourceImage, width, height, elapsed, normalized, impactProgress, enemy, scanShotResult);
+          } else if (preset.scene === 'jet-launch') {
+            this.drawJetLaunchScene(context, sourceImage, width, height, elapsed, normalized, impactProgress, enemy);
+          } else if (preset.scene === 'signal-jammer') {
+            this.drawSignalJammerScene(context, width, height, elapsed, normalized, impactProgress, enemy);
           } else {
             this.drawSea(context, width, height, elapsed, enemy);
             const scene = this.getSceneLayout(width, height, enemy);
@@ -1481,6 +1740,16 @@
             else if (preset.scene === 'procurement') this.rangeElement.textContent = `ASSEMBLY // ${Math.round(normalized * 100).toString().padStart(3, '0')}%`;
             else if (preset.scene === 'hydrogen-field') this.rangeElement.textContent = `FUSION CASCADE // ${Math.round(normalized * 100).toString().padStart(3, '0')}%`;
             else if (preset.scene === 'last-revenge') this.rangeElement.textContent = `CHANNELS // ${Math.min(15, Math.floor(normalized * 20)).toString().padStart(2, '0')}/15`;
+            else if (preset.scene === 'flame-diagonal') this.rangeElement.textContent = `THERMAL VECTOR // ${Math.round(normalized * 100).toString().padStart(3, '0')}%`;
+            else if (preset.scene === 'scan-shot') this.rangeElement.textContent = normalized >= impactStart
+              ? `CONTACTS // ${scanShotResult?.contactsMarked || 0} // WATER ${scanShotResult?.waterMarked || 0}`
+              : `PROBE LINK // ${Math.round(normalized * 100).toString().padStart(3, '0')}%`;
+            else if (preset.scene === 'jet-launch') this.rangeElement.textContent = normalized >= impactStart
+              ? 'RAPTOR // HIDDEN CONTACT ACTIVE'
+              : `AIR SPEED // ${Math.round(normalized * 980).toString().padStart(3, '0')} KT`;
+            else if (preset.scene === 'signal-jammer') this.rangeElement.textContent = normalized >= impactStart
+              ? 'HOSTILE ABILITIES // LOCKED'
+              : `SPECTRUM DENIAL // ${Math.round(normalized * 100).toString().padStart(3, '0')}%`;
             else {
               const remaining = Math.max(0, Math.round((1 - missileProgress) * 124));
               this.rangeElement.textContent = `RANGE // ${remaining.toString().padStart(3, '0')}00 M`;
@@ -1504,6 +1773,10 @@
             else if (preset.scene === 'procurement') this.audio?.tone(440, 0.25, { type: 'square', volume: 0.07, endFrequency: 880 });
             else if (preset.scene === 'hydrogen-field') this.audio?.tone(96, 0.34, { type: 'sawtooth', volume: 0.1, endFrequency: 48 });
             else if (preset.scene === 'last-revenge') this.audio?.tone(210, 0.3, { type: 'square', volume: 0.09, endFrequency: 680 });
+            else if (preset.scene === 'flame-diagonal') this.audio?.shot();
+            else if (preset.scene === 'scan-shot') this.audio?.tone(620, 0.2, { type: 'sine', volume: 0.08, endFrequency: 1120 });
+            else if (preset.scene === 'jet-launch') this.audio?.tone(260, 0.3, { type: 'sawtooth', volume: 0.09, endFrequency: 1320 });
+            else if (preset.scene === 'signal-jammer') this.audio?.tone(1180, 0.24, { type: 'square', volume: 0.08, endFrequency: 90 });
             else this.audio?.shot();
           }
           if (!impactPlayed && normalized >= impactStart) {
@@ -1547,6 +1820,18 @@
             } else if (preset.scene === 'last-revenge') {
               this.audio?.warning();
               this.audio?.tone(780, 0.38, { type: 'square', volume: 0.1, endFrequency: 1260 });
+            } else if (preset.scene === 'flame-diagonal') {
+              this.audio?.explosion();
+              this.audio?.tone(118, 0.35, { type: 'sawtooth', volume: 0.1, endFrequency: 54 });
+            } else if (preset.scene === 'scan-shot') {
+              this.audio?.sonar();
+              this.audio?.tone(860, 0.24, { type: 'sine', volume: 0.08, endFrequency: 1280 });
+            } else if (preset.scene === 'jet-launch') {
+              this.audio?.tone(760, 0.34, { type: 'sawtooth', volume: 0.09, endFrequency: 1540 });
+              this.audio?.sonar();
+            } else if (preset.scene === 'signal-jammer') {
+              this.audio?.warning();
+              this.audio?.tone(140, 0.38, { type: 'square', volume: 0.09, endFrequency: 72 });
             } else if (kind === 'miss') this.audio?.splash();
             else {
               this.audio?.explosion();

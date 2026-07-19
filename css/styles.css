@@ -1051,6 +1051,71 @@ html[data-theme='amber'] body { background-color: #0d0801; }
   text-shadow: 0 0 12px rgba(255, 94, 68, 0.94), 0 0 42px rgba(255, 25, 20, 0.58);
 }
 
+.shot-cinematic.animation-ignis-flame-missile .cinematic-reticle {
+  border-color: rgba(255, 126, 42, 0.84);
+  box-shadow: 0 0 48px rgba(255, 58, 16, 0.43), inset 0 0 32px rgba(255, 158, 49, 0.17);
+}
+.shot-cinematic.animation-ignis-flame-missile .cinematic-telemetry {
+  border-color: #ff773d;
+  background: linear-gradient(90deg, rgba(43, 9, 2, 0.95), rgba(18, 4, 1, 0.2));
+}
+.shot-cinematic.animation-ignis-flame-missile .cinematic-telemetry span,
+.shot-cinematic.animation-ignis-flame-missile .cinematic-telemetry small { color: #ffad72; }
+.shot-cinematic.animation-ignis-flame-missile .cinematic-result {
+  width: min(94vw, 980px);
+  white-space: normal;
+  color: #fff0c2;
+  text-shadow: 0 0 12px rgba(255, 177, 63, 0.94), 0 0 44px rgba(255, 42, 10, 0.62);
+}
+
+.shot-cinematic.animation-ignis-scan-shot .cinematic-reticle {
+  border-radius: 4px;
+  border-color: rgba(82, 255, 201, 0.82);
+  box-shadow: 0 0 46px rgba(45, 255, 194, 0.34), inset 0 0 30px rgba(45, 255, 194, 0.14);
+}
+.shot-cinematic.animation-ignis-scan-shot .cinematic-telemetry {
+  border-color: #53ffd0;
+  background: linear-gradient(90deg, rgba(1, 34, 27, 0.95), rgba(1, 14, 12, 0.2));
+}
+.shot-cinematic.animation-ignis-scan-shot .cinematic-telemetry span,
+.shot-cinematic.animation-ignis-scan-shot .cinematic-telemetry small { color: #80ffdc; }
+.shot-cinematic.scan-shot-result .cinematic-result {
+  width: min(94vw, 980px);
+  white-space: normal;
+  color: #c8fff0;
+  text-shadow: 0 0 12px rgba(78, 255, 207, 0.9), 0 0 40px rgba(35, 230, 255, 0.4);
+}
+
+.shot-cinematic.animation-raptor-jet-launch .cinematic-reticle {
+  border-color: rgba(84, 255, 196, 0.9);
+  box-shadow: 0 0 54px rgba(49, 255, 173, 0.4), inset 0 0 34px rgba(56, 255, 188, 0.18);
+}
+.shot-cinematic.animation-raptor-jet-launch .cinematic-telemetry {
+  border-color: #58ffc4;
+  background: linear-gradient(90deg, rgba(2, 40, 31, 0.96), rgba(1, 15, 12, 0.22));
+}
+.shot-cinematic.animation-raptor-jet-launch .cinematic-telemetry span,
+.shot-cinematic.animation-raptor-jet-launch .cinematic-telemetry small { color: #a4ffe0; }
+.shot-cinematic.jet-launched .cinematic-result {
+  color: #d5ffef;
+  text-shadow: 0 0 14px rgba(74, 255, 188, 0.96), 0 0 42px rgba(20, 220, 155, 0.52);
+}
+
+.shot-cinematic.animation-raptor-signal-jammer .cinematic-reticle {
+  border-color: rgba(116, 255, 190, 0.8);
+  box-shadow: 0 0 46px rgba(58, 255, 180, 0.32), inset 0 0 38px rgba(255, 78, 46, 0.12);
+}
+.shot-cinematic.animation-raptor-signal-jammer.enemy-attack .cinematic-reticle { border-color: rgba(255, 82, 55, 0.9); }
+.shot-cinematic.animation-raptor-signal-jammer .cinematic-telemetry {
+  border-color: #68ffc1;
+  background: linear-gradient(90deg, rgba(3, 42, 31, 0.96), rgba(34, 5, 4, 0.25));
+}
+.shot-cinematic.animation-raptor-signal-jammer.enemy-attack .cinematic-telemetry { border-color: #ff6549; }
+.shot-cinematic.jammer-active .cinematic-result {
+  color: #efffd2;
+  text-shadow: 0 0 13px rgba(92, 255, 180, 0.95), 0 0 40px rgba(255, 66, 42, 0.48);
+}
+
 @keyframes cinematic-reticle {
   to { rotate: 360deg; }
 }
@@ -1975,6 +2040,40 @@ button:focus-visible {
 
 .grid-cell.sunk-cell .shot-marker { background: #9c231c; border-color: #ff8a55; }
 
+.grid-cell.jet-hit .shot-marker {
+  width: 48%;
+  border: 2px solid #fff0a8;
+  background: #ff4d31;
+  clip-path: polygon(50% 0, 62% 35%, 100% 45%, 65% 57%, 72% 100%, 50% 70%, 28% 100%, 35% 57%, 0 45%, 38% 35%);
+  box-shadow: 0 0 11px 3px #ff7b34, 0 0 22px 6px rgba(255, 52, 28, 0.55);
+}
+
+.contact-marker {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 46%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  border: 1px solid #ffd36b;
+  color: #fff0aa;
+  background: rgba(78, 48, 4, 0.86);
+  box-shadow: 0 0 10px rgba(255, 193, 64, 0.72), inset 0 0 7px rgba(255, 218, 108, 0.22);
+  font: 800 clamp(0.35rem, 0.72vw, 0.62rem) var(--technical);
+  pointer-events: none;
+  animation: contact-intel-pulse 0.82s ease-in-out infinite alternate;
+}
+
+.grid-cell.contact-intel::before {
+  background: rgba(255, 188, 54, 0.055) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 203, 81, 0.46), 0 0 8px rgba(255, 184, 43, 0.24) !important;
+}
+@keyframes contact-intel-pulse { to { scale: 1.12; filter: brightness(1.28); } }
+
 .blocked-marker {
   position: absolute;
   z-index: 10;
@@ -2019,6 +2118,26 @@ button:focus-visible {
 .grid-cell.mine-active .mine-marker { animation: mine-marker-pulse 0.9s ease-in-out infinite alternate; }
 .grid-cell.mine-triggered .mine-marker { border-color: #ff7958; filter: grayscale(0.5); opacity: 0.52; box-shadow: 0 0 8px rgba(255, 83, 48, 0.65); }
 @keyframes mine-marker-pulse { to { scale: 1.12; box-shadow: 0 0 15px rgba(83, 255, 193, 0.95); } }
+
+.jet-marker {
+  position: absolute;
+  z-index: 11;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  color: #c9ffec;
+  font: 800 clamp(0.7rem, 1.45vw, 1.15rem) var(--technical);
+  line-height: 1;
+  rotate: -18deg;
+  filter: drop-shadow(0 0 4px #52ffc0) drop-shadow(0 0 9px rgba(51, 255, 183, 0.72));
+  pointer-events: none;
+  animation: raptor-jet-hover 0.9s ease-in-out infinite alternate;
+}
+.grid-cell.jet-active::before {
+  background: rgba(68, 255, 183, 0.09) !important;
+  box-shadow: inset 0 0 0 1px rgba(85, 255, 194, 0.52), 0 0 10px rgba(50, 255, 178, 0.3) !important;
+}
+@keyframes raptor-jet-hover { to { translate: -44% -57%; filter: drop-shadow(0 0 6px #91ffda) drop-shadow(0 0 14px rgba(51, 255, 183, 0.9)); } }
 
 .effect {
   position: absolute;
@@ -2162,6 +2281,8 @@ button:focus-visible {
 .mini-ship-cells i.hit { background: var(--red); box-shadow: 0 0 4px rgba(255, 91, 73, .5); }
 .mini-ship.sunk { color: #6c797a; text-decoration: line-through; }
 .mini-ship.sunk .mini-ship-cells i { background: #8a2824; }
+.mini-ship.jet-status { color: #88ffd1; border-top: 1px solid rgba(72, 255, 181, 0.16); padding-top: 5px; }
+.mini-ship.jet-status.active .mini-ship-cells i { background: #4dffc0; box-shadow: 0 0 7px rgba(67, 255, 185, 0.8); }
 .legend { margin-top: 25px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 9px; color: var(--muted); font-size: .59rem; letter-spacing: .08em; }
 .legend span { display: flex; align-items: center; gap: 8px; }
 .legend i { width: 8px; height: 8px; border-radius: 50%; }

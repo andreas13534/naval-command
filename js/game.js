@@ -178,6 +178,7 @@
       this.commanderId = null;
       this.commandPoints = 0;
       this.enemyRevealedShipIds = new Set();
+      this.enemyContactMarkers = new Map();
       this.playerMines = new Map();
       this.freeShotsRemaining = 0;
       this.freeShotsGrantMissPoints = true;
@@ -185,6 +186,9 @@
       this.submergedShipId = null;
       this.blockedAttackMarkers = new Map();
       this.purchasedShipIds = new Set();
+      this.playerJet = { launched: false, active: false, destroyed: false, row: null, col: null };
+      this.abilityJammedTurns = 0;
+      this.enemyAbilityJammedTurns = 0;
       this.stats = { playerShots: 0, playerHits: 0, enemyShots: 0, enemyHits: 0 };
     }
 
@@ -196,6 +200,7 @@
       this.winner = null;
       this.commandPoints = 0;
       this.enemyRevealedShipIds = new Set();
+      this.enemyContactMarkers = new Map();
       this.playerMines = new Map();
       this.freeShotsRemaining = 0;
       this.freeShotsGrantMissPoints = true;
@@ -203,6 +208,9 @@
       this.submergedShipId = null;
       this.blockedAttackMarkers = new Map();
       this.purchasedShipIds = new Set();
+      this.playerJet = { launched: false, active: false, destroyed: false, row: null, col: null };
+      this.abilityJammedTurns = 0;
+      this.enemyAbilityJammedTurns = 0;
       this.stats = { playerShots: 0, playerHits: 0, enemyShots: 0, enemyHits: 0 };
     }
 
@@ -294,6 +302,7 @@
       const usingLastRevenge = usingFreeShot && this.lastRevengeActive;
       const result = this.enemyBoard.receiveAttack(row, col);
       if (!result.valid) return result;
+      this.enemyContactMarkers.delete(this.enemyBoard.key(row, col));
       this.stats.playerShots += 1;
       if (result.type !== 'miss') this.stats.playerHits += 1;
       if (this.mode === 'commander' && result.type === 'miss' && (!usingFreeShot || this.freeShotsGrantMissPoints)) this.commandPoints += 1;
@@ -349,7 +358,10 @@
       if (!uniqueCells.length) return { valid: false, reason: 'already-shot' };
 
       this.commandPoints -= ability.cost;
-      const results = uniqueCells.map((cell) => this.enemyBoard.receiveAttack(cell.row, cell.col));
+      const results = uniqueCells.map((cell) => {
+        this.enemyContactMarkers.delete(this.enemyBoard.key(cell.row, cell.col));
+        return this.enemyBoard.receiveAttack(cell.row, cell.col);
+      });
       const misses = results.filter((result) => result.type === 'miss').length;
       const hits = results.length - misses;
       const pointsGained = ability.grantsMissPoints ? misses : 0;
@@ -406,6 +418,62 @@
       return { valid: true, type: 'scan', ability, found, cells: uniqueCells, marked, pointsGained: 0 };
     }
 
+    playerScanShot(row, col, ability) {
+      if (this.phase !== 'battle' || this.turn !== 'player') return { valid: false, reason: 'not-player-turn' };
+      if (this.mode !== 'commander' || !ability || ability.pattern !== 'scan-shot') {
+        return { valid: false, reason: 'ability-unavailable' };
+      }
+      if (this.freeShotsRemaining > 0) return { valid: false, reason: 'free-shots-active' };
+      if (this.commandPoints < ability.cost) return { valid: false, reason: 'insufficient-points' };
+      if (!this.enemyBoard.isInside(row, col)) return { valid: false, reason: 'outside' };
+      const centerKey = this.enemyBoard.key(row, col);
+      if (this.enemyBoard.shots.has(centerKey)) return { valid: false, reason: 'already-shot' };
+
+      this.commandPoints -= ability.cost;
+      this.enemyContactMarkers.delete(centerKey);
+      const shot = this.enemyBoard.receiveAttack(row, col);
+      this.stats.playerShots += 1;
+      if (shot.type !== 'miss') this.stats.playerHits += 1;
+
+      const waterMarked = [];
+      const contactsMarked = [];
+      for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+        for (let colOffset = -1; colOffset <= 1; colOffset += 1) {
+          const targetRow = row + rowOffset;
+          const targetCol = col + colOffset;
+          if ((rowOffset === 0 && colOffset === 0) || !this.enemyBoard.isInside(targetRow, targetCol)) continue;
+          const key = this.enemyBoard.key(targetRow, targetCol);
+          if (this.enemyBoard.shots.has(key)) continue;
+          if (this.enemyBoard.getShipAt(targetRow, targetCol)) {
+            const marker = { type: 'contact', row: targetRow, col: targetCol };
+            this.enemyContactMarkers.set(key, marker);
+            contactsMarked.push(marker);
+          } else {
+            const marker = { type: 'miss', row: targetRow, col: targetCol, scanned: true };
+            this.enemyBoard.shots.set(key, marker);
+            waterMarked.push(marker);
+          }
+        }
+      }
+
+      if (this.enemyBoard.allShipsSunk) {
+        this.phase = 'gameover';
+        this.winner = 'player';
+      } else {
+        this.turn = 'enemy';
+      }
+      return {
+        valid: true,
+        type: 'scan-shot',
+        ability,
+        shot,
+        results: [shot],
+        waterMarked,
+        contactsMarked,
+        pointsGained: 0,
+      };
+    }
+
     playerRepair(row, col, ability) {
       if (this.phase !== 'battle' || this.turn !== 'player') {
         return { valid: false, reason: 'not-player-turn' };
@@ -442,6 +510,7 @@
       if (this.enemyBoard.shots.has(this.enemyBoard.key(row, col))) return { valid: false, reason: 'already-shot' };
 
       this.commandPoints -= ability.cost;
+      this.enemyContactMarkers.delete(this.enemyBoard.key(row, col));
       const result = this.enemyBoard.receiveAttack(row, col);
       this.stats.playerShots += 1;
       const hit = result.type !== 'miss';
@@ -469,6 +538,9 @@
       const key = this.playerBoard.key(row, col);
       if (this.playerBoard.shots.has(key)) return { valid: false, reason: 'already-shot' };
       if (this.playerMines.has(key)) return { valid: false, reason: 'mine-present' };
+      if (this.playerJet.active && this.playerJet.row === row && this.playerJet.col === col) {
+        return { valid: false, reason: 'jet-position' };
+      }
 
       const mine = { row, col, active: true, triggered: false };
       this.playerMines.set(key, mine);
@@ -494,6 +566,9 @@
       }
       if (destinationCells.some((cell) => this.playerBoard.shots.has(this.playerBoard.key(cell.row, cell.col)))) {
         return { valid: false, reason: 'previously-fired-upon' };
+      }
+      if (this.playerJet.active && destinationCells.some((cell) => cell.row === this.playerJet.row && cell.col === this.playerJet.col)) {
+        return { valid: false, reason: 'jet-position' };
       }
 
       const moved = this.playerBoard.moveShip(ship.id, row, col);
@@ -529,6 +604,7 @@
       if (this.enemyBoard.shots.has(key)) return { valid: false, reason: 'already-shot' };
 
       this.commandPoints -= ability.cost;
+      this.enemyContactMarkers.delete(key);
       const direct = this.enemyBoard.receiveAttack(row, col);
       this.stats.playerShots += 1;
       const hit = direct.type !== 'miss';
@@ -537,6 +613,7 @@
         this.stats.playerHits += 1;
         const ship = direct.ship;
         ship.getCells().forEach((cell, index) => {
+          this.enemyContactMarkers.delete(this.enemyBoard.key(cell.row, cell.col));
           ship.hits.add(index);
           const marker = {
             valid: true,
@@ -583,6 +660,7 @@
       if (this.enemyBoard.shots.has(key)) return { valid: false, reason: 'already-shot' };
 
       this.commandPoints -= ability.cost;
+      this.enemyContactMarkers.delete(key);
       const result = this.enemyBoard.receiveAttack(row, col);
       this.stats.playerShots += 1;
       if (result.type !== 'miss') this.stats.playerHits += 1;
@@ -629,7 +707,10 @@
       }
 
       this.commandPoints -= ability.cost;
-      const results = targets.map((cell) => this.enemyBoard.receiveAttack(cell.row, cell.col));
+      const results = targets.map((cell) => {
+        this.enemyContactMarkers.delete(this.enemyBoard.key(cell.row, cell.col));
+        return this.enemyBoard.receiveAttack(cell.row, cell.col);
+      });
       const hits = results.filter((result) => result.type !== 'miss').length;
       this.stats.playerShots += results.length;
       this.stats.playerHits += hits;
@@ -657,7 +738,10 @@
       if (!targets.length) return { valid: false, reason: 'already-shot' };
 
       this.commandPoints -= ability.cost;
-      const results = targets.map((cell) => this.enemyBoard.receiveAttack(cell.row, cell.col));
+      const results = targets.map((cell) => {
+        this.enemyContactMarkers.delete(this.enemyBoard.key(cell.row, cell.col));
+        return this.enemyBoard.receiveAttack(cell.row, cell.col);
+      });
       const hits = results.filter((result) => result.type !== 'miss').length;
       this.stats.playerShots += results.length;
       this.stats.playerHits += hits;
@@ -777,6 +861,9 @@
       if (cells.some((cell) => this.playerBoard.shots.has(this.playerBoard.key(cell.row, cell.col)))) {
         return { valid: false, reason: 'previously-fired-upon' };
       }
+      if (this.playerJet.active && cells.some((cell) => cell.row === this.playerJet.row && cell.col === this.playerJet.col)) {
+        return { valid: false, reason: 'jet-position' };
+      }
 
       const placed = this.playerBoard.placeShip(definition, startRow, startCol, safeOrientation);
       if (!placed.ok) return { valid: false, reason: placed.reason };
@@ -823,16 +910,108 @@
       };
     }
 
-    enemyAttack(row, col) {
+    getPlayerJetCandidates(excludeCurrent = false) {
+      const currentKey = this.playerJet.active ? this.playerBoard.key(this.playerJet.row, this.playerJet.col) : null;
+      return this.playerBoard.unshotCells.filter((cell) => {
+        const key = this.playerBoard.key(cell.row, cell.col);
+        return !this.playerBoard.getShipAt(cell.row, cell.col)
+          && !this.playerMines.has(key)
+          && (!excludeCurrent || key !== currentKey);
+      });
+    }
+
+    movePlayerJet(random = Math.random) {
+      if (!this.playerJet.active) return { moved: false, from: null, to: null };
+      const from = { row: this.playerJet.row, col: this.playerJet.col };
+      const candidates = this.getPlayerJetCandidates(true);
+      if (!candidates.length) return { moved: false, from, to: { ...from } };
+      const roll = Number(random());
+      const index = Number.isFinite(roll) ? Math.min(candidates.length - 1, Math.max(0, Math.floor(roll * candidates.length))) : 0;
+      const destination = candidates[index];
+      this.playerJet.row = destination.row;
+      this.playerJet.col = destination.col;
+      return { moved: true, from, to: { ...destination } };
+    }
+
+    playerLaunchJet(ability, random = Math.random) {
+      if (this.phase !== 'battle' || this.turn !== 'player') return { valid: false, reason: 'not-player-turn' };
+      if (this.mode !== 'commander' || !ability || ability.pattern !== 'jet-launch') {
+        return { valid: false, reason: 'ability-unavailable' };
+      }
+      if (this.freeShotsRemaining > 0) return { valid: false, reason: 'free-shots-active' };
+      if (this.commandPoints < ability.cost) return { valid: false, reason: 'insufficient-points' };
+      if (this.playerJet.launched) return { valid: false, reason: 'jet-already-launched' };
+      const carrier = this.playerBoard.ships.find((ship) => ship.id === 'carrier');
+      if (!carrier || carrier.isSunk) return { valid: false, reason: 'carrier-unavailable' };
+      const candidates = this.getPlayerJetCandidates();
+      if (!candidates.length) return { valid: false, reason: 'no-jet-position' };
+
+      const roll = Number(random());
+      const index = Number.isFinite(roll) ? Math.min(candidates.length - 1, Math.max(0, Math.floor(roll * candidates.length))) : 0;
+      const position = candidates[index];
+      this.playerJet = { launched: true, active: true, destroyed: false, row: position.row, col: position.col };
+      this.commandPoints -= ability.cost;
+      this.turn = 'enemy';
+      return {
+        valid: true,
+        type: 'jet-launched',
+        ability,
+        row: position.row,
+        col: position.col,
+        carrier,
+        ship: carrier,
+        shipId: carrier.id,
+        shipName: carrier.name,
+        pointsGained: 0,
+      };
+    }
+
+    playerActivateJammer(ability) {
+      if (this.phase !== 'battle' || this.turn !== 'player') return { valid: false, reason: 'not-player-turn' };
+      if (this.mode !== 'commander' || !ability || ability.pattern !== 'jammer') {
+        return { valid: false, reason: 'ability-unavailable' };
+      }
+      if (this.freeShotsRemaining > 0) return { valid: false, reason: 'free-shots-active' };
+      if (this.commandPoints < ability.cost) return { valid: false, reason: 'insufficient-points' };
+
+      this.commandPoints -= ability.cost;
+      this.enemyAbilityJammedTurns = 1;
+      this.turn = 'enemy';
+      return { valid: true, type: 'jammer-active', ability, jammedTurns: 1, pointsGained: 0 };
+    }
+
+    isPlayerDefeated() {
+      return this.playerBoard.allShipsSunk && !this.playerJet.active;
+    }
+
+    enemyAttack(row, col, random = Math.random) {
       if (this.phase !== 'battle' || this.turn !== 'enemy') {
         return { valid: false, reason: 'not-enemy-turn' };
       }
       const key = this.playerBoard.key(row, col);
+      if (this.playerBoard.shots.has(key)) return { valid: false, reason: 'already-shot' };
       const targetShip = this.playerBoard.getShipAt(row, col);
       const protectedShip = this.submergedShipId
         ? this.playerBoard.ships.find((ship) => ship.id === this.submergedShipId && !ship.isSunk)
         : null;
       this.blockedAttackMarkers.delete(key);
+      if (this.playerJet.active && this.playerJet.row === row && this.playerJet.col === col) {
+        const result = { valid: true, type: 'jet-hit', row, col, jet: true };
+        this.playerBoard.shots.set(key, result);
+        this.playerJet.active = false;
+        this.playerJet.destroyed = true;
+        this.stats.enemyShots += 1;
+        this.stats.enemyHits += 1;
+        this.submergedShipId = null;
+        this.enemyAbilityJammedTurns = Math.max(0, this.enemyAbilityJammedTurns - 1);
+        if (this.isPlayerDefeated()) {
+          this.phase = 'gameover';
+          this.winner = 'enemy';
+        } else {
+          this.turn = 'player';
+        }
+        return result;
+      }
       if (protectedShip && targetShip?.id === protectedShip.id && !this.playerBoard.shots.has(key)) {
         const blocked = {
           valid: true,
@@ -847,6 +1026,11 @@
         this.stats.enemyShots += 1;
         this.blockedAttackMarkers.set(key, blocked);
         this.submergedShipId = null;
+        const jetMovement = this.movePlayerJet(random);
+        blocked.jetMoved = jetMovement.moved;
+        blocked.jetFrom = jetMovement.from;
+        blocked.jetTo = jetMovement.to;
+        this.enemyAbilityJammedTurns = Math.max(0, this.enemyAbilityJammedTurns - 1);
         this.turn = 'player';
         return blocked;
       }
@@ -856,6 +1040,11 @@
       this.stats.enemyShots += 1;
       if (result.type !== 'miss') this.stats.enemyHits += 1;
       this.submergedShipId = null;
+      const jetMovement = this.movePlayerJet(random);
+      result.jetMoved = jetMovement.moved;
+      result.jetFrom = jetMovement.from;
+      result.jetTo = jetMovement.to;
+      this.enemyAbilityJammedTurns = Math.max(0, this.enemyAbilityJammedTurns - 1);
       const mine = this.playerMines.get(this.playerBoard.key(row, col));
       if (mine?.active) {
         mine.active = false;
@@ -866,7 +1055,7 @@
         result.freeShotsGranted = 3;
         result.freeShotsRemaining = this.freeShotsRemaining;
       }
-      if (this.playerBoard.allShipsSunk) {
+      if (this.isPlayerDefeated()) {
         this.phase = 'gameover';
         this.winner = 'enemy';
       } else {

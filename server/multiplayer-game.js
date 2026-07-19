@@ -46,12 +46,15 @@ class MultiplayerMatch {
       shots: 0,
       hits: 0,
       mines: new Map(),
+      contactMarkers: new Map(),
       revealedEnemyShipIds: new Set(),
       submergedShipId: null,
       purchasedShipIds: new Set(),
       freeShotsRemaining: 0,
       freeShotsGrantMissPoints: false,
       lastRevengeActive: false,
+      jet: { launched: false, active: false, destroyed: false, row: null, col: null },
+      abilityJammedTurns: 0,
       connected: true,
     };
   }
@@ -85,6 +88,17 @@ class MultiplayerMatch {
     player.commanderId = commanderId;
     player.ready = false;
     player.board.clear();
+    player.commandPoints = 0;
+    player.mines.clear();
+    player.contactMarkers.clear();
+    player.revealedEnemyShipIds.clear();
+    player.submergedShipId = null;
+    player.purchasedShipIds.clear();
+    player.freeShotsRemaining = 0;
+    player.freeShotsGrantMissPoints = false;
+    player.lastRevengeActive = false;
+    player.jet = { launched: false, active: false, destroyed: false, row: null, col: null };
+    player.abilityJammedTurns = 0;
     this.phase = 'placement';
     return this.recordEvent(seat, 'commander-selected', { commanderId });
   }
@@ -143,6 +157,7 @@ class MultiplayerMatch {
     const defenderSeat = this.opponentSeat(seat);
     const result = this.attackCell(seat, defenderSeat, row, col, { grantsMissPoints: true });
     if (!result.ok) return result;
+    attacker.abilityJammedTurns = Math.max(0, attacker.abilityJammedTurns - 1);
     if (this.phase === 'battle' && !result.mineTriggered) this.turnSeat = defenderSeat;
     return this.recordEvent(seat, 'shot', { results: [result], abilityId: null });
   }
@@ -154,6 +169,7 @@ class MultiplayerMatch {
       grantsMissPoints: attacker.freeShotsGrantMissPoints,
     });
     if (!result.ok) return result;
+    attacker.abilityJammedTurns = Math.max(0, attacker.abilityJammedTurns - 1);
     attacker.freeShotsRemaining -= 1;
     if (this.phase === 'battle' && !result.mineTriggered && attacker.freeShotsRemaining <= 0) {
       if (attacker.lastRevengeActive) {
@@ -177,6 +193,19 @@ class MultiplayerMatch {
     if (!cell) return { ok: false, reason: 'outside' };
     const key = defender.board.key(cell.row, cell.col);
     if (defender.board.shots.has(key)) return { ok: false, reason: 'already-shot' };
+    attacker.contactMarkers.delete(key);
+
+    if (defender.jet.active && defender.jet.row === cell.row && defender.jet.col === cell.col) {
+      const result = { ok: true, valid: true, type: 'jet-hit', ...cell, jet: true, pointsGained: 0, mineTriggered: false };
+      defender.board.shots.set(key, result);
+      defender.jet.active = false;
+      defender.jet.destroyed = true;
+      defender.submergedShipId = null;
+      attacker.shots += 1;
+      attacker.hits += 1;
+      if (this.isDefeated(defender)) this.finish(attackerSeat);
+      return result;
+    }
 
     const targetShip = defender.board.getShipAt(cell.row, cell.col);
     const protectedShip = defender.submergedShipId
@@ -185,7 +214,14 @@ class MultiplayerMatch {
     defender.submergedShipId = null;
     attacker.shots += 1;
     if (protectedShip && targetShip?.id === protectedShip.id) {
-      return { ok: true, valid: true, type: 'blocked', ...cell, shipId: targetShip.id };
+      return {
+        ok: true,
+        valid: true,
+        type: 'blocked',
+        ...cell,
+        shipId: targetShip.id,
+        jetMoved: this.moveJet(defender),
+      };
     }
 
     const attack = defender.board.receiveAttack(cell.row, cell.col);
@@ -202,7 +238,8 @@ class MultiplayerMatch {
       this.turnSeat = defenderSeat;
       mineTriggered = true;
     }
-    if (defender.board.allShipsSunk) this.finish(attackerSeat);
+    const jetMoved = this.moveJet(defender);
+    if (this.isDefeated(defender)) this.finish(attackerSeat);
     return {
       ok: true,
       valid: true,
@@ -212,6 +249,7 @@ class MultiplayerMatch {
       shipName: hit ? attack.shipName : null,
       pointsGained,
       mineTriggered,
+      jetMoved,
     };
   }
 
@@ -220,6 +258,7 @@ class MultiplayerMatch {
     if (invalid) return invalid;
     const player = this.players[seat];
     if (player.freeShotsRemaining > 0) return { ok: false, reason: 'free-shots-active' };
+    if (player.abilityJammedTurns > 0) return { ok: false, reason: 'abilities-jammed' };
     const commander = this.commander(player);
     const ability = commander?.abilities.find((candidate) => candidate.id === payload.abilityId);
     if (!ability) return { ok: false, reason: 'ability-unavailable' };
@@ -242,8 +281,64 @@ class MultiplayerMatch {
       'purchase-ship': () => this.purchaseAbility(seat, ability, payload),
       'hydrogen-field': () => this.areaAbility(seat, ability, payload, ability.areaSize || 4),
       'last-revenge': () => this.lastRevengeAbility(seat, ability),
+      'diagonal-flame': () => this.diagonalAbility(seat, ability, payload),
+      'scan-shot': () => this.scanShotAbility(seat, ability, payload),
+      'jet-launch': () => this.jetLaunchAbility(seat, ability),
+      jammer: () => this.jammerAbility(seat, ability),
     };
     return handlers[ability.pattern]?.() || { ok: false, reason: 'ability-unavailable' };
+  }
+
+  jetCandidates(player, excludeCurrent = false) {
+    const currentKey = player.jet.active ? player.board.key(player.jet.row, player.jet.col) : null;
+    return player.board.unshotCells.filter((cell) => {
+      const key = player.board.key(cell.row, cell.col);
+      return !player.board.getShipAt(cell.row, cell.col)
+        && !player.mines.has(key)
+        && (!excludeCurrent || key !== currentKey);
+    });
+  }
+
+  randomCell(cells) {
+    if (!cells.length) return null;
+    const roll = Number(this.random());
+    const safeRoll = Number.isFinite(roll) ? Math.min(Math.max(roll, 0), 0.999999) : 0;
+    return cells[Math.floor(safeRoll * cells.length)];
+  }
+
+  moveJet(player) {
+    if (!player.jet.active) return false;
+    const destination = this.randomCell(this.jetCandidates(player, true));
+    if (!destination) return false;
+    player.jet.row = destination.row;
+    player.jet.col = destination.col;
+    return true;
+  }
+
+  isDefeated(player) {
+    return player.board.allShipsSunk && !player.jet.active;
+  }
+
+  jetLaunchAbility(seat, ability) {
+    const player = this.players[seat];
+    if (player.jet.launched) return { ok: false, reason: 'jet-already-launched' };
+    const carrier = player.board.ships.find((ship) => ship.id === 'carrier');
+    if (!carrier || carrier.isSunk) return { ok: false, reason: 'carrier-unavailable' };
+    const position = this.randomCell(this.jetCandidates(player));
+    if (!position) return { ok: false, reason: 'no-jet-position' };
+    player.jet = { launched: true, active: true, destroyed: false, row: position.row, col: position.col };
+    return this.spendAndEnd(seat, ability, 'ability', {
+      sourceShipId: carrier.id,
+      results: [{ valid: true, type: 'jet-launched' }],
+    });
+  }
+
+  jammerAbility(seat, ability) {
+    const defender = this.players[this.opponentSeat(seat)];
+    defender.abilityJammedTurns = 1;
+    return this.spendAndEnd(seat, ability, 'ability', {
+      results: [{ valid: true, type: 'jammer-active', jammedTurns: 1 }],
+    });
   }
 
   spendAndEnd(seat, ability, type, detail, options = {}) {
@@ -304,6 +399,66 @@ class MultiplayerMatch {
     return this.spendAndEnd(seat, ability, 'ability', { results, orientation: vertical ? 'vertical' : 'horizontal' });
   }
 
+  diagonalAbility(seat, ability, payload) {
+    const board = this.players[this.opponentSeat(seat)].board;
+    const cell = this.validateCell(board, payload.row, payload.col);
+    if (!cell) return { ok: false, reason: 'outside' };
+    const rising = payload.orientation === 'vertical';
+    const startRow = Math.min(Math.max(cell.row - 1, 0), CONFIG.gridSize - 3);
+    const startCol = rising
+      ? Math.min(Math.max(cell.col + 1, 2), CONFIG.gridSize - 1)
+      : Math.min(Math.max(cell.col - 1, 0), CONFIG.gridSize - 3);
+    const cells = Array.from({ length: 3 }, (_, index) => ({
+      row: startRow + index,
+      col: rising ? startCol - index : startCol + index,
+    }));
+    const results = this.fireSpecialCells(seat, cells);
+    if (!results.length) return { ok: false, reason: 'already-shot' };
+    return this.spendAndEnd(seat, ability, 'ability', {
+      results,
+      orientation: rising ? 'rising' : 'falling',
+    });
+  }
+
+  scanShotAbility(seat, ability, payload) {
+    const attacker = this.players[seat];
+    const defenderSeat = this.opponentSeat(seat);
+    const defender = this.players[defenderSeat];
+    const cell = this.validateCell(defender.board, payload.row, payload.col);
+    if (!cell) return { ok: false, reason: 'outside' };
+    const centerKey = defender.board.key(cell.row, cell.col);
+    if (defender.board.shots.has(centerKey)) return { ok: false, reason: 'already-shot' };
+
+    const shot = this.attackCell(seat, defenderSeat, cell.row, cell.col, { grantsMissPoints: false });
+    if (!shot.ok) return shot;
+    const waterMarked = [];
+    const contactsMarked = [];
+    for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+      for (let colOffset = -1; colOffset <= 1; colOffset += 1) {
+        if (rowOffset === 0 && colOffset === 0) continue;
+        const row = cell.row + rowOffset;
+        const col = cell.col + colOffset;
+        if (!defender.board.isInside(row, col)) continue;
+        const key = defender.board.key(row, col);
+        if (defender.board.shots.has(key)) continue;
+        if (defender.board.getShipAt(row, col)) {
+          const marker = { type: 'contact', row, col };
+          attacker.contactMarkers.set(key, marker);
+          contactsMarked.push(marker);
+        } else {
+          const marker = { type: 'miss', row, col, scanned: true };
+          defender.board.shots.set(key, marker);
+          waterMarked.push(marker);
+        }
+      }
+    }
+    return this.spendAndEnd(seat, ability, 'ability', {
+      results: [shot],
+      waterMarked: waterMarked.length,
+      contactsMarked: contactsMarked.length,
+    });
+  }
+
   scanAbility(seat, ability, payload) {
     const defender = this.players[this.opponentSeat(seat)];
     const cell = this.validateCell(defender.board, payload.row, payload.col);
@@ -355,6 +510,9 @@ class MultiplayerMatch {
     if (!cell) return { ok: false, reason: 'outside' };
     const key = player.board.key(cell.row, cell.col);
     if (player.board.shots.has(key) || player.mines.has(key)) return { ok: false, reason: 'invalid-position' };
+    if (player.jet.active && player.jet.row === cell.row && player.jet.col === cell.col) {
+      return { ok: false, reason: 'jet-position' };
+    }
     player.mines.set(key, cell);
     return this.spendAndEnd(seat, ability, 'ability', { results: [{ valid: true, type: 'mine-deployed', ...cell }] });
   }
@@ -367,7 +525,8 @@ class MultiplayerMatch {
     if (ship.hits.size) return { ok: false, reason: 'ship-damaged' };
     const destination = player.board.getPlacementCells(ship, cell.row, cell.col, ship.orientation);
     if (!player.board.canPlace(ship, cell.row, cell.col, ship.orientation, ship.id)
-      || destination.some(({ row, col }) => player.board.shots.has(player.board.key(row, col)))) {
+      || destination.some(({ row, col }) => player.board.shots.has(player.board.key(row, col)))
+      || (player.jet.active && destination.some(({ row, col }) => row === player.jet.row && col === player.jet.col))) {
       return { ok: false, reason: 'invalid-position' };
     }
     const moved = player.board.moveShip(ship.id, cell.row, cell.col);
@@ -395,7 +554,7 @@ class MultiplayerMatch {
           results.push(marker);
         }
       });
-      if (defender.board.allShipsSunk) this.finish(seat);
+      if (this.isDefeated(defender)) this.finish(seat);
     }
     return this.spendAndEnd(seat, ability, 'ability', { results });
   }
@@ -472,7 +631,8 @@ class MultiplayerMatch {
     if (!cell) return { ok: false, reason: 'outside' };
     const orientation = payload.orientation === 'vertical' ? 'vertical' : 'horizontal';
     const cells = player.board.getPlacementCells(definition, cell.row, cell.col, orientation);
-    if (cells.some(({ row, col }) => player.board.shots.has(player.board.key(row, col)))) {
+    if (cells.some(({ row, col }) => player.board.shots.has(player.board.key(row, col)))
+      || (player.jet.active && cells.some(({ row, col }) => row === player.jet.row && col === player.jet.col))) {
       return { ok: false, reason: 'invalid-position' };
     }
     const placed = player.board.placeShip(definition, cell.row, cell.col, orientation);
@@ -501,7 +661,15 @@ class MultiplayerMatch {
 
   recordEvent(actorSeat, type, detail) {
     this.eventId += 1;
-    this.lastEvent = { id: this.eventId, actorSeat, type, ...detail };
+    const actor = this.players[actorSeat];
+    const sourceShip = actor?.board.ships.find((ship) => !ship.isSunk) || actor?.board.ships[0] || null;
+    this.lastEvent = {
+      id: this.eventId,
+      actorSeat,
+      type,
+      ...(sourceShip ? { sourceShipId: sourceShip.id } : {}),
+      ...detail,
+    };
     return { ok: true, event: this.lastEvent };
   }
 
@@ -569,9 +737,12 @@ class MultiplayerMatch {
         hits: player.hits,
         freeShotsRemaining: player.freeShotsRemaining,
         lastRevengeActive: player.lastRevengeActive,
+        abilityJammedTurns: player.abilityJammedTurns,
+        jet: { ...player.jet },
         submergedShipId: player.submergedShipId,
         purchasedShipIds: [...player.purchasedShipIds],
         mines: [...player.mines.values()],
+        contactMarkers: [...player.contactMarkers.values()],
         board: this.boardSnapshot(player.board, true),
       },
       opponent: {
@@ -581,7 +752,13 @@ class MultiplayerMatch {
         shots: opponent.shots,
         hits: opponent.hits,
         freeShotsRemaining: opponent.freeShotsRemaining,
-        afloatCount: opponent.board.afloatCount,
+        abilityJammedTurns: opponent.abilityJammedTurns,
+        jet: {
+          launched: opponent.jet.launched,
+          active: opponent.jet.active,
+          destroyed: opponent.jet.destroyed,
+        },
+        afloatCount: opponent.board.afloatCount + (opponent.jet.active ? 1 : 0),
         fleetIds: opponent.board.ships.map((ship) => ship.id),
         board: this.boardSnapshot(opponent.board, false, player.revealedEnemyShipIds),
       },

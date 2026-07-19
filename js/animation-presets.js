@@ -321,4 +321,94 @@
       }),
     }),
   });
+
+  registry.register('ignis-flame-missile', {
+    scene: 'flame-diagonal',
+    duration: 3500,
+    reducedDuration: 1800,
+    launchEnd: 0.23,
+    impactStart: 0.66,
+    projectileCount: 3,
+    orderLabel: 'IGNIS FLAME VECTOR // DIAGONAL SALVO',
+    phases: Object.freeze({
+      launch: 'THERMAL WARHEADS ARMED',
+      flight: 'THREE DIAGONAL VECTORS ACTIVE',
+      impact: 'IGNITION CASCADE CONFIRMED',
+      miss: 'THERMAL SALVO COMPLETE',
+    }),
+    resultMessages: Object.freeze({
+      player: Object.freeze({
+        sunk: 'IGNIS SALVO // VESSEL DESTROYED',
+        hit: 'IGNIS SALVO // CONTACT HIT',
+        miss: 'IGNIS SALVO // OPEN WATER',
+      }),
+      enemy: Object.freeze({
+        sunk: 'HOSTILE IGNIS SALVO // VESSEL LOST',
+        hit: 'HOSTILE IGNIS SALVO // HULL BREACH',
+        miss: 'HOSTILE IGNIS SALVO // NO DAMAGE',
+      }),
+    }),
+  });
+
+  registry.register('ignis-scan-shot', {
+    scene: 'scan-shot',
+    duration: 3350,
+    reducedDuration: 1750,
+    launchEnd: 0.22,
+    impactStart: 0.65,
+    projectileCount: 1,
+    orderLabel: 'IGNIS SCAN-SHOT // ACTIVE PROBE',
+    phases: Object.freeze({
+      launch: 'PROBE ROUND CHARGED',
+      flight: 'CENTER VECTOR LOCKED',
+      impact: 'ADJACENT SECTOR MAPPED',
+      miss: 'ADJACENT SECTOR MAPPED',
+    }),
+    resultMessages: Object.freeze({
+      player: Object.freeze({
+        'scan-shot-result': 'SCAN-SHOT // TACTICAL MAP UPDATED',
+      }),
+      enemy: Object.freeze({
+        'scan-shot-result': 'HOSTILE PROBE // LOCAL SECTOR EXPOSED',
+      }),
+    }),
+  });
+
+  registry.register('raptor-jet-launch', {
+    scene: 'jet-launch',
+    duration: 3500,
+    reducedDuration: 1800,
+    launchEnd: 0.28,
+    impactStart: 0.72,
+    orderLabel: 'RAPTOR FLIGHT DECK // LAUNCH CLEARANCE',
+    phases: Object.freeze({
+      launch: 'CATAPULT PRESSURE NOMINAL',
+      flight: 'RAPTOR AIRBORNE // EVASIVE ROUTE',
+      impact: 'HIDDEN AIR CONTACT ACTIVE',
+      miss: 'LAUNCH WINDOW ABORTED',
+    }),
+    resultMessages: Object.freeze({
+      player: Object.freeze({ 'jet-launched': 'RAPTOR AIRBORNE // POSITION ENCRYPTED' }),
+      enemy: Object.freeze({ 'jet-launched': 'HOSTILE AIR CONTACT DETECTED' }),
+    }),
+  });
+
+  registry.register('raptor-signal-jammer', {
+    scene: 'signal-jammer',
+    duration: 3300,
+    reducedDuration: 1700,
+    launchEnd: 0.22,
+    impactStart: 0.66,
+    orderLabel: 'RAPTOR ECM // SPECTRUM DENIAL',
+    phases: Object.freeze({
+      launch: 'JAMMER ARRAY CHARGING',
+      flight: 'HOSTILE FREQUENCIES OVERRIDDEN',
+      impact: 'ABILITY CHANNELS LOCKED',
+      miss: 'ECM LINK INTERRUPTED',
+    }),
+    resultMessages: Object.freeze({
+      player: Object.freeze({ 'jammer-active': 'ECM LOCK CONFIRMED // GUNS ONLY' }),
+      enemy: Object.freeze({ 'jammer-active': 'HOSTILE ECM // ABILITIES DISABLED' }),
+    }),
+  });
 })(typeof window !== 'undefined' ? window : globalThis);

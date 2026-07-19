@@ -26,6 +26,7 @@
       this.multiplayerBattleVisible = false;
       this.multiplayerOpponentFleet = [];
       this.multiplayerOpponentAfloat = 0;
+      this.multiplayerOpponentJet = { launched: false, active: false, destroyed: false };
       this.multiplayerEventQueue = Promise.resolve();
       this.missionStartedAt = Date.now();
       this.elements = {};
@@ -316,6 +317,7 @@
       this.multiplayerBattleVisible = false;
       this.multiplayerOpponentFleet = [];
       this.multiplayerOpponentAfloat = 0;
+      this.multiplayerOpponentJet = { launched: false, active: false, destroyed: false };
       this.elements?.lobbyWaiting && (this.elements.lobbyWaiting.hidden = true);
       this.elements?.lobbyActions && (this.elements.lobbyActions.hidden = false);
     }
@@ -417,6 +419,11 @@
           'no-ship': 'An dieser Position befindet sich kein geeignetes Schiff.',
           'last-ship': 'Die letzte aktive Einheit kann nicht geopfert werden.',
           'already-purchased': 'Das zusätzliche Schiff wurde bereits gekauft.',
+          'abilities-jammed': 'STÖRSENDER AKTIV // Nur ein normaler Schuss ist möglich.',
+          'jet-already-launched': 'Der RAPTOR Jet ist bereits gestartet.',
+          'carrier-unavailable': 'Jet Start nicht möglich: Der Flugzeugträger ist nicht einsatzbereit.',
+          'no-jet-position': 'Kein freier Startsektor für den RAPTOR Jet.',
+          'jet-position': 'Dieses Feld wird vom eigenen RAPTOR Jet belegt.',
         };
         this.showToast(messages[error.code] || 'BEFEHL ABGELEHNT // EINGABE PRÜFEN');
         return false;
@@ -478,6 +485,8 @@
       this.game.commandPoints = state.you.commandPoints;
       this.game.freeShotsRemaining = state.you.freeShotsRemaining;
       this.game.lastRevengeActive = state.you.lastRevengeActive;
+      this.game.abilityJammedTurns = state.you.abilityJammedTurns || 0;
+      this.game.playerJet = { launched: false, active: false, destroyed: false, row: null, col: null, ...(state.you.jet || {}) };
       this.game.submergedShipId = state.you.submergedShipId;
       this.game.purchasedShipIds = new Set(state.you.purchasedShipIds || []);
       this.game.stats = {
@@ -489,6 +498,10 @@
       this.game.playerBoard = this.restoreMultiplayerBoard(state.you.board);
       this.game.enemyBoard = this.restoreMultiplayerBoard(state.opponent.board);
       this.game.playerMines = new Map((state.you.mines || []).map((mine) => [`${mine.row},${mine.col}`, { ...mine, active: true }]));
+      this.game.enemyContactMarkers = new Map((state.you.contactMarkers || []).map((marker) => [
+        `${marker.row},${marker.col}`,
+        { ...marker },
+      ]));
       this.game.blockedAttackMarkers = new Map();
       const lastEvent = state.lastEvent;
       if (lastEvent?.actorSeat !== state.seat) {
@@ -503,6 +516,7 @@
         .map((shipId) => CONFIG.ships.find((ship) => ship.id === shipId))
         .filter(Boolean);
       this.multiplayerOpponentAfloat = state.opponent.afloatCount;
+      this.multiplayerOpponentJet = { launched: false, active: false, destroyed: false, ...(state.opponent.jet || {}) };
     }
 
     restoreMultiplayerBoard(snapshot) {
@@ -540,20 +554,43 @@
       const actorCommanderId = playerShot ? state.you.commanderId : state.opponent.commanderId;
       const actorCommander = CONFIG.commanders.find((commander) => commander.id === actorCommanderId);
       const ability = actorCommander?.abilities.find((candidate) => candidate.id === event.abilityId) || null;
-      const animationResults = results.length ? results : [{
+      const baseAnimationResults = results.length ? results : [{
         type: ability?.pattern === 'scan' ? (event.found ? 'scan-found' : 'scan-clear') : (ability?.pattern || 'ability'),
         row: 4,
         col: 4,
         found: ability?.pattern === 'scan' ? event.found : undefined,
       }];
-      await this.playShotCinematic(animationResults, playerShot, ability);
+      const animationResults = ability?.pattern === 'scan-shot'
+        ? baseAnimationResults.map((result) => ({
+          ...result,
+          type: 'scan-shot-result',
+          shotType: result.type,
+          contactsMarked: event.contactsMarked || 0,
+          waterMarked: event.waterMarked || 0,
+        }))
+        : baseAnimationResults;
+      const actorBoard = playerShot ? this.game.playerBoard : this.game.enemyBoard;
+      const sourceDefinition = CONFIG.ships.find((ship) => ship.id === event.sourceShipId);
+      const sourceShip = actorBoard.ships.find((ship) => ship.id === event.sourceShipId)
+        || (sourceDefinition ? { ...sourceDefinition, orientation: 'horizontal', hits: new Set(), isSunk: false } : null);
+      this.elements.shotCinematic.dataset.sourceShipId = sourceShip?.id || '';
+      this.elements.shotCinematic.dataset.sourceShipAsset = sourceShip?.asset || '';
+      await this.playShotCinematic(animationResults, playerShot, ability, sourceShip);
       this.renderBattle();
-      animationResults.forEach((result) => {
+      (results.length ? results : animationResults).forEach((result) => {
         if (!Number.isInteger(result.row) || !Number.isInteger(result.col)) return;
         const board = playerShot ? this.elements.enemyBoard : this.elements.playerBoard;
         this.resolveShotFeedback(board, result, playerShot, { playAudio: false });
       });
-      if (event.distance !== undefined) this.showToast(`ENTFERNUNGSMESSER // DISTANZ ${event.distance ?? 0} FELDER`);
+      if (ability?.pattern === 'scan-shot') {
+        this.showToast(`SCAN-SCHUSS // ${event.contactsMarked || 0} KONTAKTE // ${event.waterMarked || 0}× WASSER`);
+      } else if (ability?.pattern === 'jet-launch') {
+        this.showToast(playerShot ? 'RAPTOR JET AKTIV // POSITION NUR FÜR DICH SICHTBAR' : 'FEINDLICHER RAPTOR JET GESTARTET');
+      } else if (ability?.pattern === 'jammer') {
+        this.showToast(playerShot ? 'STÖRSIGNAL ÜBERTRAGEN' : 'STÖRSENDER AKTIV // NUR NORMALER SCHUSS MÖGLICH');
+      } else if (!playerShot && results.some((result) => result.jetMoved)) {
+        this.showToast('RAPTOR JET // POSITION AUTOMATISCH GEWECHSELT');
+      } else if (event.distance !== undefined) this.showToast(`ENTFERNUNGSMESSER // DISTANZ ${event.distance ?? 0} FELDER`);
       else if (event.found === true) this.showToast('SEKTORSCAN // KONTAKT GEFUNDEN');
       else if (event.found === false) this.showToast('SEKTORSCAN // KEIN KONTAKT');
     }
@@ -981,7 +1018,7 @@
         <button class="ability-button" type="button" data-ability-id="${ability.id}" aria-pressed="false" title="${ability.description}">
           <span>${ability.shortName}</span><strong>${this.getAbilityCost(ability)}P</strong>
         </button>`).join('');
-      const hasOrientationAbility = commander.abilities.some((ability) => ['line', 'purchase-ship'].includes(ability.pattern));
+      const hasOrientationAbility = commander.abilities.some((ability) => ['line', 'purchase-ship', 'diagonal-flame'].includes(ability.pattern));
       this.elements.commanderHud.classList.toggle('no-orientation', !hasOrientationAbility);
       this.elements.abilityOrientationButton.hidden = !hasOrientationAbility;
       this.renderCommanderHud();
@@ -998,8 +1035,12 @@
         this.showToast(`Zuerst ${this.game.freeShotsRemaining} Freischuss${this.game.freeShotsRemaining === 1 ? '' : 'e'} abfeuern.`);
         return;
       }
+      if (this.game.abilityJammedTurns > 0) {
+        this.showToast('STÖRSENDER AKTIV // Nur ein normaler Schuss ist möglich.');
+        return;
+      }
       const selectedAbility = this.game.activeCommander?.abilities.find((ability) => ability.id === button.dataset.abilityId);
-      if (this.multiplayer.active && ['random-barrage', 'last-revenge'].includes(selectedAbility?.pattern)) {
+      if (this.multiplayer.active && ['random-barrage', 'last-revenge', 'jet-launch', 'jammer'].includes(selectedAbility?.pattern)) {
         this.activeAbilityId = null;
         this.relocationShipId = null;
         this.clearAbilityPreview();
@@ -1028,6 +1069,20 @@
         await this.executeLastRevenge(this.getAbilityForUse(selectedAbility));
         return;
       }
+      if (selectedAbility?.pattern === 'jet-launch') {
+        this.activeAbilityId = null;
+        this.relocationShipId = null;
+        this.clearAbilityPreview();
+        await this.executeJetLaunch(this.getAbilityForUse(selectedAbility));
+        return;
+      }
+      if (selectedAbility?.pattern === 'jammer') {
+        this.activeAbilityId = null;
+        this.relocationShipId = null;
+        this.clearAbilityPreview();
+        await this.executeSignalJammer(this.getAbilityForUse(selectedAbility));
+        return;
+      }
       const nextAbilityId = this.activeAbilityId === button.dataset.abilityId ? null : button.dataset.abilityId;
       if (nextAbilityId !== this.activeAbilityId) this.relocationShipId = null;
       this.activeAbilityId = nextAbilityId;
@@ -1043,8 +1098,12 @@
     toggleAbilityOrientation() {
       if (this.elements.abilityOrientationButton.disabled || this.cinematicActive) return;
       this.abilityOrientation = this.abilityOrientation === 'horizontal' ? 'vertical' : 'horizontal';
-      const label = this.getActiveAbility()?.pattern === 'purchase-ship' ? 'SCHIFF' : 'LINIE';
-      this.elements.abilityOrientationButton.textContent = `${label} ${this.abilityOrientation === 'horizontal' ? 'H' : 'V'}`;
+      const pattern = this.getActiveAbility()?.pattern;
+      const label = pattern === 'purchase-ship' ? 'SCHIFF' : pattern === 'diagonal-flame' ? 'DIAG' : 'LINIE';
+      const direction = pattern === 'diagonal-flame'
+        ? (this.abilityOrientation === 'horizontal' ? '╲' : '╱')
+        : (this.abilityOrientation === 'horizontal' ? 'H' : 'V');
+      this.elements.abilityOrientationButton.textContent = `${label} ${direction}`;
       this.clearAbilityPreview();
       this.audio.tone(340, 0.07, { type: 'square', volume: 0.05 });
     }
@@ -1064,19 +1123,33 @@
           ? CONFIG.ships.find((ship) => ship.id === ability.shipId)
           : null;
         const purchaseComplete = Boolean(purchaseDefinition && this.game.purchasedShipIds.has(purchaseDefinition.id));
+        const jetLaunchComplete = ability.pattern === 'jet-launch' && this.game.playerJet.launched;
         button.disabled = purchaseComplete
+          || jetLaunchComplete
+          || this.game.abilityJammedTurns > 0
           || this.game.commandPoints < this.getAbilityCost(ability)
           || this.game.turn !== 'player'
           || this.game.phase !== 'battle'
           || this.game.freeShotsRemaining > 0;
-        button.title = purchaseComplete ? 'Zusätzliches Schiff bereits gekauft.' : ability.description;
+        button.title = purchaseComplete
+          ? 'Zusätzliches Schiff bereits gekauft.'
+          : jetLaunchComplete
+            ? 'RAPTOR Jet wurde bereits gestartet.'
+            : this.game.abilityJammedTurns > 0
+              ? 'Störsender aktiv: Fähigkeiten sind in diesem Zug gesperrt.'
+              : ability.description;
         button.setAttribute('aria-pressed', String(active));
       });
       const activeAbility = this.getActiveAbility();
-      const orientationActive = ['line', 'purchase-ship'].includes(activeAbility?.pattern);
+      const orientationActive = ['line', 'purchase-ship', 'diagonal-flame'].includes(activeAbility?.pattern);
       this.elements.abilityOrientationButton.disabled = !orientationActive || this.game.turn !== 'player';
-      const orientationLabel = activeAbility?.pattern === 'purchase-ship' ? 'SCHIFF' : 'LINIE';
-      this.elements.abilityOrientationButton.textContent = `${orientationLabel} ${this.abilityOrientation === 'horizontal' ? 'H' : 'V'}`;
+      const orientationLabel = activeAbility?.pattern === 'purchase-ship'
+        ? 'SCHIFF'
+        : activeAbility?.pattern === 'diagonal-flame' ? 'DIAG' : 'LINIE';
+      const orientationDirection = activeAbility?.pattern === 'diagonal-flame'
+        ? (this.abilityOrientation === 'horizontal' ? '╲' : '╱')
+        : (this.abilityOrientation === 'horizontal' ? 'H' : 'V');
+      this.elements.abilityOrientationButton.textContent = `${orientationLabel} ${orientationDirection}`;
       this.elements.enemyBoard.classList.toggle('ability-targeting', Boolean(activeAbility) && activeAbility.target !== 'player');
       this.elements.playerBoard.classList.toggle('ability-targeting', activeAbility?.target === 'player');
     }
@@ -1104,6 +1177,19 @@
           col: startCol + (index % 3),
         }));
       }
+      if (ability.pattern === 'scan-shot') {
+        const cells = [];
+        for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+          for (let colOffset = -1; colOffset <= 1; colOffset += 1) {
+            const targetRow = row + rowOffset;
+            const targetCol = col + colOffset;
+            if (targetRow >= 0 && targetRow < size && targetCol >= 0 && targetCol < size) {
+              cells.push({ row: targetRow, col: targetCol });
+            }
+          }
+        }
+        return cells;
+      }
       if (ability.pattern === 'hydrogen-field') {
         const areaSize = Math.max(1, Number(ability.areaSize) || 4);
         const startRow = Math.min(Math.max(row - 1, 0), size - areaSize);
@@ -1114,6 +1200,15 @@
         }));
       }
       if (['repair', 'chemical', 'mine', 'nuclear', 'rangefinder'].includes(ability.pattern)) return [{ row, col }];
+      if (ability.pattern === 'diagonal-flame') {
+        const startRow = Math.min(Math.max(row - 1, 0), size - 3);
+        if (this.abilityOrientation === 'vertical') {
+          const startCol = Math.min(Math.max(col + 1, 2), size - 1);
+          return Array.from({ length: 3 }, (_, index) => ({ row: startRow + index, col: startCol - index }));
+        }
+        const startCol = Math.min(Math.max(col - 1, 0), size - 3);
+        return Array.from({ length: 3 }, (_, index) => ({ row: startRow + index, col: startCol + index }));
+      }
       if (ability.pattern === 'square') {
         const startRow = Math.min(Math.max(row - 1, 0), size - 2);
         const startCol = Math.min(Math.max(col - 1, 0), size - 2);
@@ -1241,14 +1336,14 @@
       });
     }
 
-    getCinematicPayload(results, playerShot, ability = null) {
+    getCinematicPayload(results, playerShot, ability = null, sourceShipOverride = null) {
       const strongestResult = results.find((result) => result.type === 'sunk')
         || results.find((result) => result.type === 'hit')
         || results[0];
       const sourceBoard = playerShot ? this.game.playerBoard : this.game.enemyBoard;
-      const sourceShip = ability?.pattern === 'relocation' && strongestResult?.ship
+      const sourceShip = sourceShipOverride || (ability?.pattern === 'relocation' && strongestResult?.ship
         ? strongestResult.ship
-        : sourceBoard.ships.find((ship) => !ship.isSunk) || sourceBoard.ships[0] || null;
+        : sourceBoard.ships.find((ship) => !ship.isSunk) || sourceBoard.ships[0] || null);
       return {
         attacker: playerShot ? 'player' : 'enemy',
         results,
@@ -1262,10 +1357,10 @@
       };
     }
 
-    async playShotCinematic(results, playerShot, ability = null) {
+    async playShotCinematic(results, playerShot, ability = null, sourceShipOverride = null) {
       this.cinematicActive = true;
       try {
-        await this.cinematic.play(this.getCinematicPayload(results, playerShot, ability));
+        await this.cinematic.play(this.getCinematicPayload(results, playerShot, ability, sourceShipOverride));
         return true;
       } finally {
         this.cinematicActive = false;
@@ -1346,6 +1441,10 @@
       const cells = this.getAbilityCells(ability, row, col);
       if (ability.pattern === 'scan') {
         await this.handleScannerAbility(ability, row, col, cells);
+        return;
+      }
+      if (ability.pattern === 'scan-shot') {
+        await this.handleScanShotAbility(ability, row, col);
         return;
       }
       if (ability.pattern === 'chemical') {
@@ -1470,6 +1569,46 @@
       this.startPlayerTurn();
     }
 
+    async executeJetLaunch(ability) {
+      const result = this.game.playerLaunchJet(ability);
+      if (!result.valid) {
+        const messages = {
+          'insufficient-points': 'Nicht genügend Kommandopunkte.',
+          'jet-already-launched': 'Der RAPTOR Jet ist bereits gestartet.',
+          'carrier-unavailable': 'Jet Start nicht möglich: Der Flugzeugträger ist nicht einsatzbereit.',
+          'no-jet-position': 'Kein freier Wasser-Sektor für den RAPTOR Jet.',
+        };
+        this.showToast(messages[result.reason] || 'JET START ABGEBROCHEN');
+        return;
+      }
+      const token = this.actionToken;
+      this.setTurnDisplay('enemy');
+      await this.playShotCinematic([result], true, ability, result.carrier);
+      if (token !== this.actionToken) return;
+      this.renderBattle();
+      const coordinate = this.coordinate(result.row, result.col);
+      this.addLog(`RAPTOR Jet vom Flugzeugträger gestartet // eigener Sektor ${coordinate}.`, 'system');
+      this.showToast(`RAPTOR JET AKTIV // SEKTOR ${coordinate} // MUSS VERTEIDIGT WERDEN`);
+      this.completePlayerTurn();
+    }
+
+    async executeSignalJammer(ability) {
+      const result = this.game.playerActivateJammer(ability);
+      if (!result.valid) {
+        if (result.reason === 'insufficient-points') this.showToast('Nicht genügend Kommandopunkte.');
+        else this.showToast('STÖRSENDER KANN NICHT AKTIVIERT WERDEN');
+        return;
+      }
+      const token = this.actionToken;
+      this.setTurnDisplay('enemy');
+      await this.playShotCinematic([result], true, ability);
+      if (token !== this.actionToken) return;
+      this.renderBattle();
+      this.addLog('Störsender aktiv: Gegnerische Fähigkeiten für den nächsten Zug gesperrt.', 'system');
+      this.showToast('STÖRSIGNAL ÜBERTRAGEN // GEGNERISCHE FÄHIGKEITEN GESPERRT');
+      this.completePlayerTurn();
+    }
+
     async handleNuclearAbility(ability, row, col) {
       const result = this.game.playerNuclearAttack(row, col, ability);
       if (!result.valid) {
@@ -1551,6 +1690,35 @@
         this.addLog(`${ability.name}: Sektor leer. ${result.marked.length} Felder als Wasser markiert.`, 'miss');
         this.showToast(`SEKTOR LEER · ${result.marked.length} Felder als Wasser markiert · ${ability.cost}P.`);
       }
+      this.completePlayerTurn();
+    }
+
+    async handleScanShotAbility(ability, row, col) {
+      const result = this.game.playerScanShot(row, col, ability);
+      if (!result.valid) {
+        if (result.reason === 'already-shot') this.showToast('Das Zentrum wurde bereits beschossen.');
+        if (result.reason === 'insufficient-points') this.showToast('Nicht genügend Kommandopunkte.');
+        return;
+      }
+      this.activeAbilityId = null;
+      this.clearAbilityPreview();
+      const token = this.actionToken;
+      this.setTurnDisplay('enemy');
+      const cinematicResult = {
+        ...result.shot,
+        type: 'scan-shot-result',
+        shotType: result.shot.type,
+        contactsMarked: result.contactsMarked.length,
+        waterMarked: result.waterMarked.length,
+      };
+      await this.playShotCinematic([cinematicResult], true, ability);
+      if (token !== this.actionToken) return;
+      this.renderBattle();
+      this.resolveShotFeedback(this.elements.enemyBoard, result.shot, true, { playAudio: false });
+      const contactCount = result.contactsMarked.length;
+      const waterCount = result.waterMarked.length;
+      this.addLog(`${ability.name}: Zentrum beschossen, ${contactCount} anonyme Kontakte, ${waterCount} Wasserfelder.`, result.shot.type === 'miss' ? 'miss' : 'hit');
+      this.showToast(`SCAN-SCHUSS // ${contactCount} KONTAKT${contactCount === 1 ? '' : 'E'} // ${waterCount}× WASSER // ${ability.cost}P`);
       this.completePlayerTurn();
     }
 
@@ -1780,6 +1948,11 @@
       if (result.type === 'blocked') {
         this.showToast(`BLOCKIERT // ${result.shipName.toUpperCase()} BLEIBT UNBESCHÄDIGT`);
       }
+      if (result.type === 'jet-hit') {
+        this.showToast('RAPTOR JET GETROFFEN // LUFTKONTAKT VERLOREN');
+      } else if (result.jetMoved) {
+        this.showToast(`RAPTOR JET // NEUER SEKTOR ${this.coordinate(result.jetTo.row, result.jetTo.col)}`);
+      }
       if (result.mineTriggered) {
         this.addCellEffect(this.elements.playerBoard, result.row, result.col, 'mine-trigger-effect');
         this.addLog(`SEEMINE AUSGELÖST // ${result.freeShotsGranted} Freischüsse freigegeben.`, 'system');
@@ -1805,16 +1978,17 @@
       const playerTurn = turn === 'player';
       const freeVolley = playerTurn && this.game.freeShotsRemaining > 0;
       const revengeVolley = freeVolley && this.game.lastRevengeActive;
+      const abilitiesJammed = playerTurn && this.game.abilityJammedTurns > 0;
       const mobileLayout = root.document.documentElement.classList.contains('mobile-layout');
       this.elements.battleTitle.textContent = mobileLayout
         ? (revengeVolley ? `Letzte Rache ×${this.game.freeShotsRemaining}` : freeVolley ? `Freischuss ×${this.game.freeShotsRemaining}` : playerTurn ? 'Dein Zug' : 'Gegner-Zug')
         : 'Taktische Gefechtskarte';
       this.elements.turnDisplay.classList.toggle('enemy', !playerTurn);
-      this.elements.turnLabel.textContent = revengeVolley ? `NO RETURN ×${this.game.freeShotsRemaining}` : freeVolley ? `FREE FIRE ×${this.game.freeShotsRemaining}` : playerTurn ? 'TARGET LOCK READY' : 'HOSTILE SIGNAL';
+      this.elements.turnLabel.textContent = revengeVolley ? `NO RETURN ×${this.game.freeShotsRemaining}` : freeVolley ? `FREE FIRE ×${this.game.freeShotsRemaining}` : abilitiesJammed ? 'ECM LOCK // GUNS ONLY' : playerTurn ? 'TARGET LOCK READY' : 'HOSTILE SIGNAL';
       this.elements.fireOrderText.textContent = playerTurn
         ? revengeVolley
           ? `${this.game.freeShotsRemaining} Schüsse bis zur Entscheidung. Fähigkeiten sind gesperrt.`
-          : freeVolley ? `${this.game.freeShotsRemaining} Freischüsse verbleiben. Fähigkeiten sind gesperrt.` : 'Ziel im feindlichen Raster wählen.'
+          : freeVolley ? `${this.game.freeShotsRemaining} Freischüsse verbleiben. Fähigkeiten sind gesperrt.` : abilitiesJammed ? 'Störsender aktiv. Nur einen normalen Schuss abgeben.' : 'Ziel im feindlichen Raster wählen.'
         : 'Feindliche Zielerfassung. Position halten.';
       this.elements.enemyBoard.querySelector('.water-cells').classList.toggle('locked', !playerTurn);
       if (!playerTurn) {
@@ -1832,6 +2006,11 @@
         this.addLog(`${subject} auf ${coordinate} – von ${result.shipName} blockiert.`, 'system');
         if (playAudio) this.audio.sonar();
         this.addCellEffect(boardElement, result.row, result.col, 'block-effect');
+      } else if (result.type === 'jet-hit') {
+        this.addLog(`${subject} auf ${coordinate} – RAPTOR Jet zerstört.`, 'sunk');
+        if (playAudio) this.audio.explosion();
+        this.addCellEffect(boardElement, result.row, result.col, 'explosion-effect');
+        if (!playerShot) this.triggerOwnImpact(playAudio);
       } else if (result.type === 'miss') {
         this.addLog(`${subject} auf ${coordinate} – Wasser.`, 'miss');
         if (playAudio) this.audio.splash();
@@ -1875,22 +2054,26 @@
         mines: this.game.playerMines,
         blockedMarkers: this.game.blockedAttackMarkers,
         submergedShipId: this.game.submergedShipId,
+        jet: this.game.playerJet,
       });
       this.markRelocationSelection();
       this.renderBoard(this.elements.enemyBoard, this.game.enemyBoard, {
         showShips: false,
         showSunkShips: true,
         revealedShipIds: this.game.enemyRevealedShipIds,
+        contactMarkers: this.game.enemyContactMarkers,
       });
       this.renderFleetStatus(this.elements.playerFleetList, this.game.playerBoard, {
         showDamage: true,
         definitions: this.game.playerFleetDefinitions,
+        jet: this.game.playerJet,
       });
       this.renderFleetStatus(this.elements.enemyFleetList, this.game.enemyBoard, {
         revealedShipIds: this.game.enemyRevealedShipIds,
         definitions: this.multiplayer.active ? this.multiplayerOpponentFleet : this.game.enemyFleetDefinitions,
+        jet: this.multiplayer.active ? this.multiplayerOpponentJet : null,
       });
-      this.elements.playerAfloat.textContent = `${this.game.playerBoard.afloatCount} AKTIV`;
+      this.elements.playerAfloat.textContent = `${this.game.playerBoard.afloatCount + (this.game.playerJet.active ? 1 : 0)} AKTIV`;
       this.elements.enemyAfloat.textContent = `${this.multiplayer.active ? this.multiplayerOpponentAfloat : this.game.enemyBoard.afloatCount} AKTIV`;
       this.updateMobileBattleBoardLayout();
       this.renderCommanderHud();
@@ -1957,11 +2140,12 @@
         if (result) {
           cell.classList.add('shot');
           if (result.type === 'miss') cell.classList.add('miss');
+          else if (result.type === 'jet-hit') cell.classList.add('jet-hit');
           else cell.classList.add(ship && ship.isSunk ? 'sunk-cell' : 'hit');
           const marker = document.createElement('span');
           marker.className = 'shot-marker';
           cell.appendChild(marker);
-          cell.setAttribute('aria-label', `${this.coordinate(row, col)}: ${result.type === 'miss' ? 'Wasser' : ship && ship.isSunk ? 'versenkt' : 'Treffer'}`);
+          cell.setAttribute('aria-label', `${this.coordinate(row, col)}: ${result.type === 'miss' ? 'Wasser' : result.type === 'jet-hit' ? 'RAPTOR Jet zerstört' : ship && ship.isSunk ? 'versenkt' : 'Treffer'}`);
         } else {
           cell.setAttribute('aria-label', this.coordinate(row, col));
         }
@@ -1974,6 +2158,16 @@
           cell.appendChild(marker);
           cell.setAttribute('aria-label', `${this.coordinate(row, col)}: Angriff blockiert`);
         }
+        const contact = options.contactMarkers?.get(coordinate);
+        if (!result && contact) {
+          cell.classList.add('contact-intel');
+          const marker = document.createElement('span');
+          marker.className = 'contact-marker';
+          marker.textContent = '?';
+          marker.setAttribute('aria-hidden', 'true');
+          cell.appendChild(marker);
+          cell.setAttribute('aria-label', `${this.coordinate(row, col)}: anonymer Kontakt, unbeschossen`);
+        }
         const mine = options.mines?.get(coordinate);
         if (mine) {
           cell.classList.add(mine.triggered ? 'mine-triggered' : 'mine-active');
@@ -1982,6 +2176,15 @@
           marker.setAttribute('aria-hidden', 'true');
           cell.appendChild(marker);
           if (!result) cell.setAttribute('aria-label', `${this.coordinate(row, col)}: eigene Mine scharf`);
+        }
+        if (!result && options.jet?.active && options.jet.row === row && options.jet.col === col) {
+          cell.classList.add('jet-active');
+          const marker = document.createElement('span');
+          marker.className = 'jet-marker';
+          marker.textContent = '✈';
+          marker.setAttribute('aria-hidden', 'true');
+          cell.appendChild(marker);
+          cell.setAttribute('aria-label', `${this.coordinate(row, col)}: eigener RAPTOR Jet aktiv`);
         }
       });
 
@@ -2005,7 +2208,7 @@
 
     renderFleetStatus(element, board, options = {}) {
       const definitions = options.definitions || this.game.playerFleetDefinitions;
-      element.innerHTML = definitions.map((definition) => {
+      const shipRows = definitions.map((definition) => {
         const ship = board.ships.find((candidate) => candidate.id === definition.id);
         const visibleDamage = options.showDamage || ship?.isSunk || options.revealedShipIds?.has(definition.id);
         const hits = ship && visibleDamage ? ship.hits : new Set();
@@ -2015,6 +2218,13 @@
             <span class="mini-ship-cells">${Array.from({ length: definition.length }, (_, index) => `<i class="${hits.has(index) ? 'hit' : ''}"></i>`).join('')}</span>
           </div>`;
       }).join('');
+      const jetRow = options.jet?.launched
+        ? `<div class="mini-ship jet-status ${options.jet.destroyed ? 'sunk' : ''} ${options.jet.active ? 'active' : ''}">
+            <span>RAPTOR JET</span>
+            <span class="mini-ship-cells"><i class="${options.jet.destroyed ? 'hit' : ''}"></i></span>
+          </div>`
+        : '';
+      element.innerHTML = shipRows + jetRow;
     }
 
     addLog(message, type = '') {

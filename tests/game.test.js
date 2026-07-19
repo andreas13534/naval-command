@@ -42,17 +42,11 @@ function testRandomFleetAndAI() {
   assert.notDeepEqual(second, first, 'AI must not choose an attacked field');
 }
 
-function testDebugFleetAndExperimentalFootprints() {
-  const game = new BattleshipGame(CONFIG);
-  game.reset();
-  game.setMode('commander');
-  assert.equal(game.setCommander('debug'), true);
-  assert.equal(game.playerFleetDefinitions.length, 16, 'debug commander must expose every configured ship variant');
-  game.randomizeBoard(game.playerBoard, Math.random, game.playerFleetDefinitions);
-  assert.equal(game.playerBoard.ships.length, 16);
-  assert.equal(game.playerBoard.occupancy.size, 65, 'all rectangular footprint cells must be occupied');
-
-  const fortress = game.playerBoard.ships.find((ship) => ship.id === 'floating-fortress');
+function testExperimentalFootprints() {
+  const board = new GameBoard(10);
+  const fortressDefinition = CONFIG.ships.find((ship) => ship.id === 'floating-fortress');
+  assert.equal(board.placeShip(fortressDefinition, 0, 0, 'horizontal').ok, true);
+  const fortress = board.ships[0];
   assert.equal(fortress.getCells().length, 14);
   const rows = new Set(fortress.getCells().map((cell) => cell.row));
   const cols = new Set(fortress.getCells().map((cell) => cell.col));
@@ -128,6 +122,7 @@ function testCommanderPointsAndAbilities() {
 
 function testPortraitCommanderPlaceholders() {
   const standard = CONFIG.commanders.find((commander) => commander.id === 'standard');
+  assert.equal(CONFIG.commanders.some((commander) => commander.id === 'debug'), false, 'the standalone debug commander must not be selectable');
   const placeholders = CONFIG.commanders.filter((commander) => commander.portraitAsset);
   assert.equal(placeholders.length, 19, 'all new portrait files must create a commander');
   assert.equal(new Set(placeholders.map((commander) => commander.id)).size, 19, 'placeholder commander IDs must be unique');
@@ -173,13 +168,162 @@ function testPortraitCommanderPlaceholders() {
   assert.deepEqual([squareShip.gridWidth, squareShip.gridHeight], [2, 2], 'the requested 2x2 ship uses the supplied square footprint');
   assert.deepEqual(okafor.abilities.map((ability) => ability.cost), [12, 15]);
   assert.deepEqual(okafor.abilities.map((ability) => ability.animationId), ['prometheus-hydrogen-bomb', 'prometheus-last-revenge']);
-  const finishedIds = new Set([voss.id, kwon.id, graves.id, dhillon.id, serrano.id, falk.id, okafor.id]);
+  const vale = CONFIG.commanders.find((commander) => commander.id === 'captain-lucian-vale');
+  assert.equal(vale.name, 'Kapitän Lucian Vale');
+  assert.deepEqual(vale.fleet, ['square-catamaran', 'heavy-missile-cruiser', 'fast-destroyer']);
+  const valeSquare = CONFIG.ships.find((ship) => ship.id === vale.fleet[0]);
+  assert.deepEqual([valeSquare.gridWidth, valeSquare.gridHeight], [2, 2]);
+  assert.deepEqual(vale.abilities.map((ability) => ability.cost), [6, 6]);
+  assert.deepEqual(vale.abilities.map((ability) => ability.animationId), ['ignis-flame-missile', 'ignis-scan-shot']);
+  const cross = CONFIG.commanders.find((commander) => commander.id === 'captain-imani-cross');
+  assert.equal(cross.name, 'Kapitän Imani Cross');
+  assert.deepEqual(cross.fleet, ['carrier', 'fork-ship', 'patrol-interceptor']);
+  assert.deepEqual(cross.fleet.map((shipId) => CONFIG.ships.find((ship) => ship.id === shipId).length), [5, 6, 2]);
+  const crossFork = CONFIG.ships.find((ship) => ship.id === cross.fleet[1]);
+  assert.deepEqual([crossFork.gridWidth, crossFork.gridHeight], [3, 2]);
+  assert.deepEqual(cross.abilities.map((ability) => ability.cost), [8, 3]);
+  assert.deepEqual(cross.abilities.map((ability) => ability.animationId), ['raptor-jet-launch', 'raptor-signal-jammer']);
+  const finishedIds = new Set([voss.id, kwon.id, graves.id, dhillon.id, serrano.id, falk.id, okafor.id, vale.id, cross.id]);
   for (const commander of placeholders.filter((commander) => !finishedIds.has(commander.id))) {
     assert.equal(commander.name, '#Test');
     assert.deepEqual(commander.fleet, standard.fleet, `${commander.id} must start with the standard fleet`);
     assert.deepEqual(commander.abilities, standard.abilities, `${commander.id} must start with the standard abilities`);
     assert.match(commander.portraitAsset, /^assets\/captain-portraits\/.+\.png$/);
   }
+}
+
+function testCrossJetAndSignalJammer() {
+  const makeGame = () => {
+    const game = new BattleshipGame(CONFIG);
+    game.reset();
+    game.setMode('commander');
+    assert.equal(game.setCommander('captain-imani-cross'), true);
+    game.playerBoard.clear();
+    assert.equal(game.playerBoard.placeShip(CONFIG.ships.find((ship) => ship.id === 'carrier'), 0, 0, 'horizontal').ok, true);
+    assert.equal(game.playerBoard.placeShip(CONFIG.ships.find((ship) => ship.id === 'fork-ship'), 2, 0, 'horizontal').ok, true);
+    assert.equal(game.playerBoard.placeShip(CONFIG.ships.find((ship) => ship.id === 'patrol-interceptor'), 4, 0, 'horizontal').ok, true);
+    game.enemyBoard.clear();
+    assert.equal(game.enemyBoard.placeShip(CONFIG.ships.find((ship) => ship.id === 'destroyer'), 8, 0, 'horizontal').ok, true);
+    game.phase = 'battle';
+    game.turn = 'player';
+    return game;
+  };
+
+  const game = makeGame();
+  const launch = game.activeCommander.abilities.find((ability) => ability.pattern === 'jet-launch');
+  const jammer = game.activeCommander.abilities.find((ability) => ability.pattern === 'jammer');
+  game.commandPoints = launch.cost - 1;
+  assert.equal(game.playerLaunchJet(launch, () => 0).reason, 'insufficient-points');
+  assert.equal(game.playerJet.launched, false);
+  assert.equal(game.turn, 'player');
+
+  game.commandPoints = launch.cost;
+  const launched = game.playerLaunchJet(launch, () => 0);
+  assert.equal(launched.valid, true);
+  assert.equal(game.playerJet.active, true);
+  assert.equal(game.playerBoard.getShipAt(game.playerJet.row, game.playerJet.col), null, 'jet starts over water');
+  assert.equal(game.commandPoints, 0);
+  assert.equal(game.turn, 'enemy');
+
+  const firstJetCell = { row: game.playerJet.row, col: game.playerJet.col };
+  const enemyMiss = game.playerBoard.unshotCells.find((cell) => !game.playerBoard.getShipAt(cell.row, cell.col)
+    && (cell.row !== firstJetCell.row || cell.col !== firstJetCell.col));
+  const moved = game.enemyAttack(enemyMiss.row, enemyMiss.col, () => 0);
+  assert.equal(moved.valid, true);
+  assert.equal(moved.jetMoved, true);
+  assert.notDeepEqual({ row: game.playerJet.row, col: game.playerJet.col }, firstJetCell, 'jet moves after a valid enemy shot');
+
+  game.turn = 'player';
+  game.commandPoints = launch.cost;
+  assert.equal(game.playerLaunchJet(launch, () => 0).reason, 'jet-already-launched');
+  assert.equal(game.commandPoints, launch.cost, 'invalid repeat launch spends no points');
+
+  for (const ship of game.playerBoard.ships) {
+    for (const cell of ship.getCells()) {
+      game.turn = 'enemy';
+      const result = game.enemyAttack(cell.row, cell.col, () => 0);
+      assert.equal(result.valid, true);
+    }
+  }
+  assert.equal(game.playerBoard.allShipsSunk, true);
+  assert.equal(game.phase, 'battle', 'active jet keeps the player alive after every ship sinks');
+  game.turn = 'enemy';
+  const jetHit = game.enemyAttack(game.playerJet.row, game.playerJet.col, () => 0);
+  assert.equal(jetHit.type, 'jet-hit');
+  assert.equal(game.playerJet.destroyed, true);
+  assert.equal(game.phase, 'gameover');
+  assert.equal(game.winner, 'enemy');
+
+  const jammerGame = makeGame();
+  jammerGame.commandPoints = jammer.cost;
+  const jammed = jammerGame.playerActivateJammer(jammer);
+  assert.equal(jammed.valid, true);
+  assert.equal(jammerGame.enemyAbilityJammedTurns, 1);
+  assert.equal(jammerGame.commandPoints, 0);
+  const water = jammerGame.playerBoard.unshotCells.find((cell) => !jammerGame.playerBoard.getShipAt(cell.row, cell.col));
+  assert.equal(jammerGame.enemyAttack(water.row, water.col, () => 0).valid, true);
+  assert.equal(jammerGame.enemyAbilityJammedTurns, 0, 'jam lasts exactly one enemy turn');
+}
+
+function testValeFlameMissileAndScanShot() {
+  const makeGame = () => {
+    const game = new BattleshipGame(CONFIG);
+    game.reset();
+    game.setMode('commander');
+    assert.equal(game.setCommander('captain-lucian-vale'), true);
+    game.playerBoard.clear();
+    game.playerFleetDefinitions.forEach((definition, index) => {
+      assert.equal(game.playerBoard.placeShip(definition, index * 2, 0, 'horizontal').ok, true);
+    });
+    game.enemyBoard.clear();
+    const destroyer = CONFIG.ships.find((ship) => ship.id === 'fast-destroyer');
+    assert.equal(game.enemyBoard.placeShip(destroyer, 4, 4, 'horizontal').ok, true);
+    game.phase = 'battle';
+    game.turn = 'player';
+    return game;
+  };
+
+  const flameGame = makeGame();
+  const flame = flameGame.activeCommander.abilities.find((ability) => ability.pattern === 'diagonal-flame');
+  flameGame.commandPoints = flame.cost - 1;
+  assert.equal(flameGame.playerAttackPattern([{ row: 0, col: 0 }], flame).reason, 'insufficient-points');
+  assert.equal(flameGame.turn, 'player');
+  flameGame.commandPoints = flame.cost;
+  const flameResult = flameGame.playerAttackPattern([
+    { row: 0, col: 0 },
+    { row: 1, col: 1 },
+    { row: 2, col: 2 },
+  ], flame);
+  assert.equal(flameResult.valid, true);
+  assert.equal(flameResult.results.length, 3);
+  assert.equal(flameResult.pointsGained, 0);
+  assert.equal(flameGame.commandPoints, 0);
+  assert.equal(flameGame.turn, 'enemy');
+
+  const scanGame = makeGame();
+  const scanShot = scanGame.activeCommander.abilities.find((ability) => ability.pattern === 'scan-shot');
+  scanGame.commandPoints = scanShot.cost;
+  const scanResult = scanGame.playerScanShot(3, 3, scanShot);
+  assert.equal(scanResult.valid, true);
+  assert.equal(scanResult.shot.type, 'miss');
+  assert.equal(scanResult.contactsMarked.length, 1);
+  assert.equal(scanResult.waterMarked.length, 7);
+  assert.equal(scanGame.enemyBoard.getShipAt(4, 4).hits.size, 0, 'scan contact must not damage the adjacent ship');
+  assert.equal(scanGame.enemyContactMarkers.has('4,4'), true);
+  assert.equal(scanGame.enemyBoard.shots.has('4,4'), false, 'contact marker remains fireable');
+  assert.equal(scanGame.stats.playerShots, 1, 'only the center is a real shot');
+  assert.equal(scanGame.commandPoints, 0, 'scan-shot grants no miss points');
+
+  scanGame.turn = 'player';
+  scanGame.commandPoints = scanShot.cost;
+  const duplicate = scanGame.playerScanShot(3, 3, scanShot);
+  assert.equal(duplicate.reason, 'already-shot');
+  assert.equal(scanGame.commandPoints, scanShot.cost, 'invalid center spends no points');
+  assert.equal(scanGame.turn, 'player');
+
+  const contactHit = scanGame.playerAttack(4, 4);
+  assert.equal(contactHit.type, 'hit');
+  assert.equal(scanGame.enemyContactMarkers.has('4,4'), false, 'firing clears the anonymous marker');
 }
 
 function testFalkSacrificeAndProcurement() {
@@ -775,5 +919,7 @@ testDhillonRangefinderAndBarrage();
 testSerranoTorpedoAndSubmerge();
 testFalkSacrificeAndProcurement();
 testOkaforHydrogenBombAndLastRevenge();
-testDebugFleetAndExperimentalFootprints();
+testValeFlameMissileAndScanShot();
+testCrossJetAndSignalJammer();
+testExperimentalFootprints();
 console.log('All game logic tests passed.');
