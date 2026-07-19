@@ -348,8 +348,12 @@
         const session = await this.multiplayer.createLobby();
         this.showLobbyWaiting(session.code);
         this.showToast('PRIVATER EINSATZCODE ERSTELLT');
-      } catch (_error) {
-        this.elements.lobbyError.textContent = 'Lobby-Dienst nicht erreichbar. Starte das Spiel über „npm start“.';
+      } catch (error) {
+        const messages = {
+          'peer-network-unavailable': 'Direktverbindung nicht verfügbar. Prüfe die Internetverbindung und versuche es erneut.',
+          'lobby-code-unavailable': 'Es konnte kein freier Einsatzcode erzeugt werden. Bitte erneut versuchen.',
+        };
+        this.elements.lobbyError.textContent = messages[error.code] || 'Lobby-Dienst nicht erreichbar. Bitte Verbindung prüfen.';
       } finally {
         this.setLobbyBusy(false);
       }

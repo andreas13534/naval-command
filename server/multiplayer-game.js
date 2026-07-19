@@ -1,8 +1,10 @@
 'use strict';
 
 globalThis.NavalGame = globalThis.NavalGame || {};
-require('../js/config.js');
-require('../js/game.js');
+if (typeof require === 'function') {
+  require('../js/config.js');
+  require('../js/game.js');
+}
 
 const { CONFIG, GameBoard } = globalThis.NavalGame;
 
@@ -766,4 +768,5 @@ class MultiplayerMatch {
   }
 }
 
-module.exports = { MultiplayerMatch };
+globalThis.NavalGame.MultiplayerMatch = MultiplayerMatch;
+if (typeof module !== 'undefined' && module.exports) module.exports = { MultiplayerMatch };
