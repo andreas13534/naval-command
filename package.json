@@ -1,0 +1,13 @@
+{
+  "name": "naval-command",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browserbasiertes Schiffeversenken mit privaten Multiplayer-Lobbys",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/game.test.js && node tests/animation-registry.test.js && node tests/multiplayer.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

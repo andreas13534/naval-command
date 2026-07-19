@@ -1,0 +1,881 @@
+/* Final smartphone layout. Loaded after styles.css so legacy rules cannot override it. */
+
+html.mobile-layout,
+html.mobile-layout body {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html.mobile-layout body {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.mobile-layout .app-shell {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+html.mobile-layout .topbar {
+  position: sticky;
+  z-index: 100;
+  top: 0;
+  height: 56px;
+  padding: 0 10px;
+}
+
+html.mobile-layout main {
+  height: auto;
+  min-height: calc(100dvh - 56px);
+  overflow: visible;
+}
+
+html.mobile-layout .screen,
+html.mobile-layout .screen.active {
+  width: 100%;
+  height: auto;
+  min-height: calc(100dvh - 56px);
+  overflow: visible;
+  padding: 16px 10px 28px;
+}
+
+html.mobile-layout .screen.active {
+  animation: none;
+  transform: none;
+}
+
+html.mobile-layout .choice-screen.active,
+html.mobile-layout .placement-screen.active,
+html.mobile-layout .battle-screen.active {
+  display: block;
+}
+
+html.mobile-layout .choice-shell,
+html.mobile-layout .commander-choice-shell {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
+html.mobile-layout .choice-shell > h2,
+html.mobile-layout .section-heading h2,
+html.mobile-layout .battle-heading h2 {
+  margin-bottom: 16px;
+  font-size: clamp(1.55rem, 8vw, 2.15rem);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+html.mobile-layout .mode-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+html.mobile-layout .mode-card {
+  min-height: 118px;
+  padding: 16px;
+}
+
+html.mobile-layout .mode-copy strong {
+  font-size: 0.9rem;
+}
+
+html.mobile-layout .mode-copy small {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+html.mobile-layout .choice-back {
+  margin-top: 18px;
+  padding: 8px 4px;
+  font-size: 0.75rem;
+}
+
+html.mobile-layout .commander-selection-grid,
+html.mobile-layout .commander-selection-grid.many-commanders {
+  display: grid;
+  flex: none;
+  width: 100%;
+  height: auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  gap: 12px;
+  overflow: visible;
+}
+
+html.mobile-layout .commander-card,
+html.mobile-layout .many-commanders .commander-card {
+  width: 100%;
+  height: auto;
+  min-height: 126px;
+  max-height: none;
+  grid-template-columns: 112px minmax(0, 1fr) 42px;
+  grid-template-rows: minmax(80px, auto) 44px;
+  overflow: hidden;
+}
+
+html.mobile-layout .commander-portrait,
+html.mobile-layout .many-commanders .commander-portrait {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  min-height: 124px;
+  height: 100%;
+  border-right: 1px solid rgba(69, 255, 125, 0.24);
+  border-bottom: 0;
+}
+
+html.mobile-layout .commander-identity,
+html.mobile-layout .many-commanders .commander-identity {
+  grid-column: 2;
+  grid-row: 1;
+  padding: 14px 10px 8px;
+}
+
+html.mobile-layout .commander-identity span,
+html.mobile-layout .many-commanders .commander-identity span {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+html.mobile-layout .commander-identity h3,
+html.mobile-layout .many-commanders .commander-identity h3 {
+  margin-top: 6px;
+  font-size: 1rem;
+  line-height: 1.2;
+  overflow: visible;
+  white-space: normal;
+}
+
+html.mobile-layout .commander-info-button,
+html.mobile-layout .many-commanders .commander-info-button {
+  position: static;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: center;
+  width: 34px;
+  height: 34px;
+  margin: 10px 6px 0 0;
+  font-size: 0.82rem;
+}
+
+html.mobile-layout .commander-select-button,
+html.mobile-layout .many-commanders .commander-select-button {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 5px 9px;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+html.mobile-layout .commander-details,
+html.mobile-layout .many-commanders .commander-details,
+html.mobile-layout [data-commander-card='debug'] .commander-details {
+  position: fixed;
+  z-index: 9500;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: calc(100vw - 20px);
+  max-height: calc(100dvh - 20px);
+  padding: 44px 16px 18px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+}
+
+html.mobile-layout .commander-details li,
+html.mobile-layout [data-commander-card='debug'] .commander-details li {
+  padding: 7px 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+html.mobile-layout .commander-details li small {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+html.mobile-layout .placement-layout,
+html.mobile-layout .battle-layout {
+  width: 100%;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: visible;
+}
+
+html.mobile-layout .fleet-dock {
+  order: 1;
+}
+
+html.mobile-layout .placement-station {
+  order: 2;
+}
+
+html.mobile-layout .tactical-controls {
+  order: 3;
+  grid-template-columns: 1fr;
+}
+
+html.mobile-layout .fleet-dock,
+html.mobile-layout .placement-station,
+html.mobile-layout .tactical-controls,
+html.mobile-layout .boards-area,
+html.mobile-layout .combat-station {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+html.mobile-layout .ship-selector,
+html.mobile-layout .ship-selector.extended {
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  gap: 7px;
+}
+
+html.mobile-layout .ship-card,
+html.mobile-layout .ship-selector.extended .ship-card {
+  min-height: 62px;
+  grid-template-columns: 50px minmax(0, 1fr) auto;
+  padding: 8px 10px;
+}
+
+html.mobile-layout .ship-card .ship-sprite {
+  display: block;
+  width: 46px;
+  height: 28px;
+}
+
+html.mobile-layout .ship-card-name strong,
+html.mobile-layout .ship-selector.extended .ship-card-name strong {
+  overflow: visible;
+  font-size: 0.76rem;
+  line-height: 1.25;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+html.mobile-layout .placement-station .coordinate-board,
+html.mobile-layout .combat-station .coordinate-board {
+  width: 100%;
+  height: auto;
+  max-width: 520px;
+  aspect-ratio: 1;
+}
+
+html.mobile-layout .battle-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+html.mobile-layout .battle-heading > div:first-child,
+html.mobile-layout .commander-hud {
+  grid-column: 1 / -1;
+}
+
+html.mobile-layout .commander-hud,
+html.mobile-layout .ability-controls {
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+
+html.mobile-layout .points-display span,
+html.mobile-layout .points-display small,
+html.mobile-layout .ability-button span,
+html.mobile-layout .ability-button strong,
+html.mobile-layout .orientation-toggle {
+  font-size: 0.75rem;
+  overflow: visible;
+  white-space: normal;
+}
+
+html.mobile-layout .boards-area {
+  order: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+html.mobile-layout .target-station {
+  order: 1;
+}
+
+html.mobile-layout .boards-area .combat-station:not(.target-station) {
+  order: 2;
+}
+
+html.mobile-layout .battle-status-panel,
+html.mobile-layout .combat-log-panel {
+  display: none;
+}
+
+html.mobile-layout.mobile-landscape body::after {
+  content: 'MOBILE COMMAND // FÜR BESTE SICHT GERÄT HOCHKANT DREHEN';
+  position: fixed;
+  z-index: 11000;
+  left: 50%;
+  bottom: 8px;
+  max-width: calc(100vw - 16px);
+  padding: 8px 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(69, 255, 125, 0.5);
+  background: rgba(1, 12, 6, 0.96);
+  color: var(--cyan);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* In-battle board switcher: one tactical board large, the other always visible. */
+html.mobile-layout .battle-screen.active {
+  height: calc(100dvh - 56px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  overflow: hidden;
+}
+
+html.mobile-layout .battle-heading {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  margin-bottom: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 106px 78px;
+  gap: 5px;
+  align-items: center;
+}
+
+html.mobile-layout .battle-heading > div:first-child {
+  grid-column: 1;
+  min-width: 0;
+}
+
+html.mobile-layout .battle-heading .eyebrow {
+  display: none;
+}
+
+html.mobile-layout .battle-heading h2 {
+  margin: 0;
+  font-size: clamp(1rem, 5vw, 1.25rem);
+  line-height: 1;
+}
+
+html.mobile-layout .turn-display {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 5px 7px;
+  gap: 6px;
+}
+
+html.mobile-layout .turn-display small,
+html.mobile-layout .turn-display strong {
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+html.mobile-layout .battle-heading > .secondary-button {
+  grid-column: 3;
+  min-height: 44px;
+  height: 44px;
+  max-width: none;
+  padding: 4px;
+  font-size: 0.58rem;
+  line-height: 1.2;
+}
+
+html.mobile-layout .commander-hud {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 48px;
+  gap: 5px;
+  padding-top: 5px;
+}
+
+html.mobile-layout .points-display,
+html.mobile-layout .ability-button,
+html.mobile-layout .orientation-toggle {
+  width: auto;
+  min-height: 48px;
+  height: 48px;
+  padding: 5px 7px;
+  overflow: hidden;
+}
+
+html.mobile-layout .points-display span,
+html.mobile-layout .points-display small {
+  font-size: 0.58rem;
+  line-height: 1.15;
+}
+
+html.mobile-layout .points-display strong {
+  font-size: 1.3rem;
+}
+
+html.mobile-layout .debug-setting {
+  margin: 0 7px;
+  padding: 11px;
+  gap: 10px;
+}
+
+html.mobile-layout .debug-setting strong {
+  font-size: 0.82rem;
+}
+
+html.mobile-layout .debug-setting small {
+  font-size: 0.7rem;
+}
+
+html.mobile-layout .debug-mode-toggle {
+  min-width: 76px;
+  height: 46px;
+}
+
+html.mobile-layout .ability-controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+html.mobile-layout .ability-button span,
+html.mobile-layout .ability-button strong,
+html.mobile-layout .orientation-toggle {
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+html.mobile-layout .battle-layout {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.mobile-layout .boards-area.mobile-board-switcher {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) 118px;
+  gap: 6px;
+  overflow: hidden;
+}
+
+html.mobile-layout .mobile-board-switcher .combat-station {
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.mobile-layout .mobile-board-switcher .board-expanded {
+  grid-row: 1;
+  order: initial;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+html.mobile-layout .mobile-board-switcher .board-expanded .station-header {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 5px 9px;
+}
+
+html.mobile-layout .mobile-board-switcher .board-expanded .board-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+
+html.mobile-layout .mobile-board-switcher .board-expanded .coordinate-board {
+  width: 100%;
+  height: auto;
+  max-width: 520px;
+  max-height: 100%;
+  aspect-ratio: 1;
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized {
+  position: relative;
+  grid-row: 2;
+  order: initial;
+  height: 118px;
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  cursor: pointer;
+  border-color: rgba(69, 255, 125, 0.5);
+  background: rgba(2, 14, 8, 0.98);
+}
+
+html.mobile-layout .boards-area.mobile-board-switcher .combat-station.board-minimized {
+  display: grid;
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized .board-frame {
+  grid-column: 1;
+  grid-row: 1;
+  width: 116px;
+  height: 116px;
+  padding: 2px;
+  border-right: 1px solid rgba(69, 255, 125, 0.25);
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized .coordinate-board {
+  --label-size: 9px;
+  width: 112px;
+  height: 112px;
+  aspect-ratio: 1;
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized .station-header {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  padding: 12px 10px 34px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  border-bottom: 0;
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized .station-header h3 {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  line-height: 1.15;
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized::after {
+  content: 'ANTIPPEN ZUM WECHSEL';
+  position: absolute;
+  right: 10px;
+  left: auto;
+  bottom: 10px;
+  width: auto;
+  max-width: calc(100% - 142px);
+  color: var(--cyan);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  white-space: normal;
+}
+
+html.mobile-layout .mobile-board-switcher .board-minimized .board-condition {
+  display: none;
+}
+
+@media (max-width: 370px), (max-height: 700px) {
+  html.mobile-layout .battle-screen.active {
+    padding: 5px;
+  }
+
+  html.mobile-layout .battle-heading {
+    grid-template-columns: minmax(0, 1fr) 94px 68px;
+  }
+
+  html.mobile-layout .battle-heading h2 {
+    font-size: 0.9rem;
+  }
+
+  html.mobile-layout .commander-hud {
+    grid-template-columns: 68px minmax(0, 1fr) 42px;
+  }
+
+  html.mobile-layout .boards-area.mobile-board-switcher {
+    grid-template-rows: minmax(0, 1fr) 96px;
+  }
+
+  html.mobile-layout .mobile-board-switcher .board-minimized {
+    height: 96px;
+    grid-template-columns: 94px minmax(0, 1fr);
+  }
+
+  html.mobile-layout .mobile-board-switcher .board-minimized .board-frame {
+    width: 94px;
+    height: 94px;
+  }
+
+  html.mobile-layout .mobile-board-switcher .board-minimized .coordinate-board {
+    width: 90px;
+    height: 90px;
+  }
+}
+
+/* Native iOS scroll surfaces for the two setup phases. The battle screen keeps
+   its dedicated one-screen layout and is intentionally not included here. */
+html.mobile-layout #commander-screen.active,
+html.mobile-layout #placement-screen.active {
+  height: calc(100dvh - 56px);
+  min-height: 0;
+  max-height: calc(100dvh - 56px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+}
+
+html.mobile-layout #commander-screen.active .commander-choice-shell,
+html.mobile-layout #commander-screen.active .commander-selection-grid,
+html.mobile-layout #placement-screen.active .placement-layout,
+html.mobile-layout #placement-screen.active .fleet-dock,
+html.mobile-layout #placement-screen.active .placement-station,
+html.mobile-layout #placement-screen.active .tactical-controls {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+html.mobile-layout #commander-screen.active .commander-selection-grid,
+html.mobile-layout #placement-screen.active .placement-layout {
+  flex: none;
+}
+
+/* Compact mobile battle header: the title carries the turn state. */
+html.mobile-layout .battle-heading {
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+
+html.mobile-layout .battle-heading .turn-display {
+  display: none;
+}
+
+html.mobile-layout .battle-heading > .secondary-button {
+  grid-column: 2;
+}
+
+html.mobile-layout .commander-hud {
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+}
+
+html.mobile-layout .commander-hud.no-orientation {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+html.mobile-layout .points-display {
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: 4px;
+}
+
+html.mobile-layout .points-display span,
+html.mobile-layout .points-display small {
+  display: none;
+}
+
+html.mobile-layout .points-display strong {
+  grid-row: auto;
+  grid-column: auto;
+  align-self: center;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+/* Portrait cinematic: clearer targeting, safe-area HUD and a visible scan pass. */
+html.mobile-layout .shot-cinematic {
+  height: 100dvh;
+  min-height: 100dvh;
+  transform: translateZ(0);
+}
+
+html.mobile-layout .shot-cinematic-canvas {
+  will-change: contents;
+}
+
+html.mobile-layout .shot-cinematic-hud {
+  padding:
+    max(14px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
+}
+
+html.mobile-layout .cinematic-topline {
+  gap: 12px;
+  padding: 8px 9px;
+  border: 1px solid rgba(69, 255, 125, 0.28);
+  background: rgba(0, 12, 7, 0.72);
+  font-size: clamp(0.48rem, 2.3vw, 0.62rem);
+  line-height: 1.35;
+}
+
+html.mobile-layout .enemy-attack .cinematic-topline {
+  border-color: rgba(255, 74, 47, 0.45);
+  background: rgba(22, 3, 2, 0.74);
+}
+
+html.mobile-layout .cinematic-topline span:last-child {
+  text-align: right;
+}
+
+html.mobile-layout .cinematic-reticle {
+  left: 82%;
+  top: 53%;
+  width: clamp(88px, 25vw, 104px);
+  border-width: 2px;
+  box-shadow: 0 0 34px rgba(45, 255, 105, 0.2), inset 0 0 28px rgba(45, 255, 105, 0.09);
+}
+
+html.mobile-layout .enemy-attack .cinematic-reticle {
+  left: 18%;
+  box-shadow: 0 0 36px rgba(255, 45, 22, 0.22), inset 0 0 28px rgba(255, 45, 22, 0.08);
+}
+
+html.mobile-layout .cinematic-telemetry {
+  width: min(86vw, 360px);
+  max-width: calc(100vw - 28px);
+  margin-bottom: max(14px, env(safe-area-inset-bottom));
+  padding: 12px 14px;
+  gap: 7px;
+  border-left-width: 4px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
+}
+
+html.mobile-layout .cinematic-telemetry strong {
+  font-size: clamp(1.15rem, 5.4vw, 1.5rem);
+}
+
+html.mobile-layout .cinematic-result {
+  bottom: 28%;
+  width: min(92vw, 430px);
+  font-size: clamp(1.2rem, 6.4vw, 1.75rem);
+  line-height: 1.08;
+}
+
+html.mobile-layout .shot-cinematic-vignette::after {
+  content: '';
+  position: absolute;
+  inset: -20% 0 auto;
+  height: 24%;
+  opacity: 0;
+  background: linear-gradient(180deg, transparent, rgba(71, 255, 126, 0.08), transparent);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+html.mobile-layout .enemy-attack .shot-cinematic-vignette::after {
+  background: linear-gradient(180deg, transparent, rgba(255, 73, 43, 0.1), transparent);
+}
+
+html.mobile-layout .shot-cinematic.active .shot-cinematic-vignette::after {
+  animation: mobile-cinematic-scan 1.35s linear infinite;
+}
+
+@keyframes mobile-cinematic-scan {
+  0% { translate: 0 -20%; opacity: 0; }
+  16% { opacity: 1; }
+  100% { translate: 0 520%; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-layout .shot-cinematic.active .shot-cinematic-vignette::after {
+    animation: none;
+  }
+}
+
+html.mobile-layout .shot-cinematic.animation-sector-scanner .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-field-repair .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-chemical-reveal .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-mine-deployment .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-tactical-relocation .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-nuclear-annihilation .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-vector-rangefinder .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-berserker-random-barrage .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-abyss-row-torpedo .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-abyss-submerge-shield .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-ledger-fleet-sacrifice .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-ledger-ship-procurement .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-prometheus-hydrogen-bomb .cinematic-reticle,
+html.mobile-layout .shot-cinematic.animation-prometheus-last-revenge .cinematic-reticle {
+  left: 50%;
+  top: 50%;
+  width: clamp(92px, 28vw, 116px);
+}
+
+html.mobile-layout .shot-cinematic.animation-sector-scanner .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-field-repair .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-chemical-reveal .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-mine-deployment .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-tactical-relocation .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-nuclear-annihilation .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-vector-rangefinder .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-berserker-random-barrage .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-abyss-row-torpedo .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-abyss-submerge-shield .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-ledger-fleet-sacrifice .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-ledger-ship-procurement .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-prometheus-hydrogen-bomb .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-prometheus-last-revenge .cinematic-result {
+  bottom: 24%;
+}
+
+html.mobile-layout .shot-cinematic.animation-sector-scanner .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-field-repair .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-chemical-reveal .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-mine-deployment .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-tactical-relocation .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-vector-rangefinder .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-berserker-random-barrage .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-abyss-row-torpedo .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-abyss-submerge-shield .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-ledger-ship-procurement .shot-cinematic-vignette::after,
+html.mobile-layout .shot-cinematic.animation-prometheus-hydrogen-bomb .shot-cinematic-vignette::after {
+  background: linear-gradient(180deg, transparent, rgba(73, 235, 255, 0.12), transparent);
+}
+
+html.mobile-layout .shot-cinematic.animation-vector-rangefinder .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-berserker-random-barrage .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-abyss-row-torpedo .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-abyss-submerge-shield .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-ledger-fleet-sacrifice .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-ledger-ship-procurement .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-prometheus-hydrogen-bomb .cinematic-result,
+html.mobile-layout .shot-cinematic.animation-prometheus-last-revenge .cinematic-result {
+  width: calc(100vw - 28px);
+  font-size: clamp(1rem, 5.4vw, 1.45rem);
+  letter-spacing: 0.045em;
+  overflow-wrap: anywhere;
+}
+
+html.mobile-layout .shot-cinematic.animation-nuclear-annihilation .shot-cinematic-vignette::after {
+  background: linear-gradient(180deg, transparent, rgba(255, 94, 35, 0.16), transparent);
+}
+
+html.mobile-layout .shot-cinematic.animation-ledger-fleet-sacrifice .shot-cinematic-vignette::after {
+  background: linear-gradient(180deg, transparent, rgba(255, 78, 40, 0.16), transparent);
+}
+
+html.mobile-layout .shot-cinematic.animation-prometheus-hydrogen-bomb .shot-cinematic-vignette::after {
+  background: linear-gradient(180deg, transparent, rgba(255, 136, 42, 0.18), transparent);
+}
+
+html.mobile-layout .shot-cinematic.animation-prometheus-last-revenge .shot-cinematic-vignette::after {
+  background: linear-gradient(180deg, transparent, rgba(255, 46, 39, 0.2), transparent);
+}

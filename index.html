@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="theme-color" content="#07131b" />
+    <meta
+      name="description"
+      content="NAVAL COMMAND – ein taktisches Schiffeversenken-Spiel für den Browser."
+    />
+    <title>NAVAL COMMAND</title>
+    <script>
+      (function (window, document, navigator) {
+        'use strict';
+
+        var root = document.documentElement;
+        var phonePattern = /iPhone|iPod|Android.*Mobile|Windows Phone|webOS|BlackBerry|Opera Mini|IEMobile/i;
+
+        function getShortScreenEdge() {
+          var screenWidth = window.screen && window.screen.width ? window.screen.width : 10000;
+          var screenHeight = window.screen && window.screen.height ? window.screen.height : 10000;
+          return Math.min(screenWidth, screenHeight);
+        }
+
+        function isPhoneDevice() {
+          var viewportWidth = Math.min(window.innerWidth || 10000, root.clientWidth || 10000);
+          var viewportHeight = window.innerHeight || 10000;
+          var shortViewportEdge = Math.min(viewportWidth, viewportHeight);
+          var phoneUserAgent = phonePattern.test(navigator.userAgent || '');
+          return shortViewportEdge <= 700 || phoneUserAgent || getShortScreenEdge() <= 700;
+        }
+
+        function syncMobileLayout() {
+          var isPhone = isPhoneDevice();
+          var isPortrait = window.matchMedia
+            ? window.matchMedia('(orientation: portrait)').matches
+            : window.innerHeight >= window.innerWidth;
+          root.classList.toggle('mobile-layout', isPhone);
+          root.classList.toggle('mobile-landscape', isPhone && !isPortrait);
+          root.setAttribute('data-device-layout', isPhone ? 'phone' : 'desktop');
+          root.setAttribute('data-orientation', isPortrait ? 'portrait' : 'landscape');
+        }
+
+        window.NavalMobileLayout = {
+          isPhone: isPhoneDevice,
+          sync: syncMobileLayout
+        };
+
+        syncMobileLayout();
+        window.addEventListener('resize', syncMobileLayout, { passive: true });
+        window.addEventListener('orientationchange', syncMobileLayout, { passive: true });
+        window.addEventListener('pageshow', syncMobileLayout, { passive: true });
+      })(window, document, navigator);
+    </script>
+    <link rel="stylesheet" href="css/styles.css?v=private-lobby-1" />
+    <link rel="stylesheet" href="css/mobile-device.css?v=okafor-abilities-1" />
+    <link rel="stylesheet" href="css/desktop-field-fit.css?v=desktop-field-fit-1" />
+  </head>
+  <body>
+    <div class="app-shell" id="app">
+      <header class="topbar">
+        <button class="brand" id="brand-button" type="button" aria-label="Zum Hauptmenü">
+          <span class="brand-mark" aria-hidden="true"><i></i></span>
+          <span><strong>NAVAL</strong> COMMAND</span>
+        </button>
+        <div class="topbar-readouts" aria-label="Systemstatus">
+          <span><i class="status-dot"></i>SECURE LINK // OMEGA</span>
+          <span class="clock" id="mission-clock">00:00:00</span>
+        </div>
+        <button class="icon-button client-settings-button" id="client-settings-button" type="button" aria-label="Client Settings öffnen" aria-haspopup="dialog" aria-controls="client-settings-modal">
+          <span aria-hidden="true">⌬</span>
+          <span>CLIENT SETTINGS</span>
+        </button>
+        <button class="icon-button sound-toggle" id="sound-toggle" type="button" aria-pressed="true">
+          <span class="sound-icon" aria-hidden="true">◖</span>
+          <span class="sound-label">AUDIO AN</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="screen menu-screen active" id="menu-screen" aria-labelledby="game-title">
+          <div class="ocean-backdrop" aria-hidden="true">
+            <div class="radar-grid">
+              <div class="radar-sweep"></div>
+              <span class="radar-blip blip-one"></span>
+              <span class="radar-blip blip-two"></span>
+              <span class="radar-blip blip-three"></span>
+            </div>
+          </div>
+          <div class="menu-content">
+            <p class="eyebrow">TACTICAL FLEET OPERATIONS</p>
+            <h1 id="game-title" data-text="NAVAL COMMAND"><span>NAVAL</span> COMMAND</h1>
+            <p class="menu-subtitle">ENCRYPTED FLEET INTERFACE // NORTH ATLANTIC SECTOR</p>
+            <div class="menu-divider"><span></span><i>◆</i><span></span></div>
+            <button class="primary-button large" id="new-battle-button" type="button">
+              <span>NEUES GEFECHT</span>
+              <small>MISSION STARTEN</small>
+            </button>
+            <button class="secondary-button large multiplayer-menu-button" id="multiplayer-button" type="button">
+              <span>PRIVATE LOBBY</span>
+              <small>VERSCHLÜSSELTES ONLINE-GEFECHT</small>
+            </button>
+            <div class="menu-meta">
+              <span>GRID 10 × 10</span>
+              <span>FLOTTE 05</span>
+              <span>MODUS SOLO</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen choice-screen lobby-screen" id="lobby-screen" aria-labelledby="lobby-title">
+          <div class="choice-shell lobby-shell">
+            <p class="choice-code">SECURE LINK // PRIVATE MATCH</p>
+            <h2 id="lobby-title">Private Lobby</h2>
+            <p class="lobby-intro">Erstelle einen Einsatzcode oder tritt mit einem sechsstelligen Code bei.</p>
+            <div class="lobby-actions" id="lobby-actions">
+              <button class="mode-card lobby-create-card" id="create-lobby-button" type="button">
+                <span class="mode-symbol" aria-hidden="true">⌁</span>
+                <span class="mode-copy"><strong>LOBBY ERSTELLEN</strong><small>Privaten Einsatzcode generieren</small></span>
+                <span class="mode-arrow" aria-hidden="true">›</span>
+              </button>
+              <form class="lobby-join-card" id="join-lobby-form">
+                <label for="lobby-code-input">EINSATZCODE EINGEBEN</label>
+                <div>
+                  <input id="lobby-code-input" name="lobby-code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="ABC234" aria-describedby="lobby-error" />
+                  <button class="primary-button" id="join-lobby-button" type="submit">BEITRETEN</button>
+                </div>
+              </form>
+            </div>
+            <div class="lobby-waiting" id="lobby-waiting" hidden>
+              <span class="lobby-signal" aria-hidden="true"><i></i></span>
+              <small>PRIVATER EINSATZCODE</small>
+              <strong id="lobby-code-display">——— ———</strong>
+              <button class="secondary-button" id="copy-lobby-code-button" type="button">CODE KOPIEREN</button>
+              <p id="lobby-status">Warte auf zweiten Kommandanten …</p>
+            </div>
+            <p class="lobby-error" id="lobby-error" role="alert"></p>
+            <button class="text-button choice-back" id="lobby-back-button" type="button">ZURÜCK</button>
+          </div>
+        </section>
+
+        <section class="screen choice-screen" id="mode-screen" aria-labelledby="mode-title">
+          <div class="choice-shell">
+            <p class="choice-code">MISSION SETUP // 01</p>
+            <h2 id="mode-title">Modus wählen</h2>
+            <div class="mode-grid">
+              <button class="mode-card" type="button" data-mode="classic">
+                <span class="mode-symbol" aria-hidden="true">⌖</span>
+                <span class="mode-copy"><strong>KLASSISCH</strong><small>Standardgefecht mit der klassischen Flotte.</small></span>
+                <span class="mode-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="mode-card commander-mode-card" type="button" data-mode="commander">
+                <span class="mode-symbol" aria-hidden="true">★</span>
+                <span class="mode-copy"><strong>KOMMANDANTENMODUS</strong><small>Einzigartige Flotte und taktische Fähigkeiten.</small></span>
+                <span class="mode-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+            <button class="text-button choice-back" id="mode-back-button" type="button">ZURÜCK</button>
+          </div>
+        </section>
+
+        <section class="screen choice-screen" id="commander-screen" aria-labelledby="commander-title">
+          <div class="choice-shell commander-choice-shell">
+            <p class="choice-code">MISSION SETUP // 02</p>
+            <h2 id="commander-title">Kommandant wählen</h2>
+            <div class="commander-selection-grid" id="commander-selection-grid"></div>
+            <button class="text-button choice-back" id="commander-back-button" type="button">ZURÜCK ZUR MODUSAUSWAHL</button>
+          </div>
+        </section>
+
+        <section class="screen placement-screen" id="placement-screen" aria-labelledby="placement-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">PHASE 01 // EINSATZVORBEREITUNG</p>
+              <h2 id="placement-title">Flottenaufstellung</h2>
+            </div>
+            <div class="phase-indicator"><span class="active"></span><span></span><span></span></div>
+          </div>
+
+          <div class="placement-layout">
+            <aside class="command-panel fleet-dock">
+              <div class="panel-heading">
+                <span>FLEET STATUS</span><b id="placement-count">0 / 5</b>
+              </div>
+              <p class="panel-instruction">Schiff auswählen, ausrichten und auf dem Raster positionieren.</p>
+              <div class="ship-selector" id="ship-selector"></div>
+              <div class="orientation-readout">
+                <span>AUSRICHTUNG</span>
+                <b id="orientation-label">HORIZONTAL // 090°</b>
+              </div>
+              <button class="secondary-button full" id="rotate-button" type="button">
+                <span class="rotate-icon">↻</span> SCHIFF DREHEN <kbd>R</kbd>
+              </button>
+            </aside>
+
+            <section class="board-station placement-station">
+              <div class="station-header">
+                <div><span class="station-code">GRID A-01</span><h3>Eigene Flotte</h3></div>
+                <div class="selected-ship-readout">
+                  <span>AKTIVE EINHEIT</span>
+                  <strong id="selected-ship-label">FLUGZEUGTRÄGER</strong>
+                </div>
+              </div>
+              <div class="board-frame placement-frame">
+                <div class="corner-bracket top-left"></div><div class="corner-bracket top-right"></div>
+                <div class="corner-bracket bottom-left"></div><div class="corner-bracket bottom-right"></div>
+                <div class="coordinate-board" id="placement-board" aria-label="Raster zur Schiffsplatzierung"></div>
+              </div>
+              <div class="grid-hint"><i></i><span id="placement-hint">Wähle eine Einheit und bestätige die Position im Raster.</span></div>
+            </section>
+
+            <aside class="command-panel tactical-controls">
+              <div class="panel-heading"><span>COMMAND INPUT</span><b>OPS</b></div>
+              <button class="control-card" id="randomize-button" type="button">
+                <span class="control-icon">⌘</span><span><strong>ZUFALLSAUFSTELLUNG</strong><small>Flotte automatisch positionieren</small></span>
+              </button>
+              <button class="control-card" id="reset-placement-button" type="button">
+                <span class="control-icon">×</span><span><strong>AUFSTELLUNG LÖSCHEN</strong><small>Alle Einheiten zurücksetzen</small></span>
+              </button>
+              <div class="readiness" id="readiness-panel">
+                <div class="readiness-ring"><span id="readiness-value">0%</span></div>
+                <div><span>EINSATZSTATUS</span><strong id="readiness-text">NICHT BEREIT</strong></div>
+              </div>
+              <button class="primary-button full" id="start-battle-button" type="button" disabled>
+                GEFECHT STARTEN
+              </button>
+            </aside>
+          </div>
+        </section>
+
+        <section class="screen battle-screen" id="battle-screen" aria-labelledby="battle-title">
+          <div class="battle-heading">
+            <div>
+              <p class="eyebrow">PHASE 02 // GEFECHT</p>
+              <h2 id="battle-title">Taktische Gefechtskarte</h2>
+            </div>
+            <div class="turn-display" id="turn-display">
+              <span class="turn-pulse"></span>
+              <div><small>AKTIVER ZUG</small><strong id="turn-label">FEUERBEREIT</strong></div>
+            </div>
+            <div class="commander-hud" id="commander-hud" hidden>
+              <div class="points-display">
+                <span>KOMMANDOPUNKTE</span>
+                <strong id="command-points">0</strong>
+                <small>+1 PRO FEHLSCHUSS</small>
+              </div>
+              <div class="ability-controls" id="ability-controls"></div>
+              <button class="orientation-toggle" id="ability-orientation-button" type="button" title="Linienrichtung wechseln">LINIE H</button>
+            </div>
+            <button class="secondary-button" id="restart-button" type="button">GEFECHT NEU STARTEN</button>
+          </div>
+
+          <div class="battle-layout">
+            <aside class="command-panel battle-status-panel">
+              <div class="panel-heading"><span>GEFECHTSSTATUS</span><b>LIVE</b></div>
+              <div class="fleet-status-block">
+                <div class="fleet-status-heading"><span>EIGENE FLOTTE</span><b id="player-afloat">5 AKTIV</b></div>
+                <div class="mini-fleet-list" id="player-fleet-list"></div>
+              </div>
+              <div class="fleet-status-block enemy-status">
+                <div class="fleet-status-heading"><span>FEINDLICHE FLOTTE</span><b id="enemy-afloat">5 AKTIV</b></div>
+                <div class="mini-fleet-list" id="enemy-fleet-list"></div>
+              </div>
+              <div class="legend">
+                <span><i class="legend-hit"></i>TREFFER</span>
+                <span><i class="legend-miss"></i>WASSER</span>
+                <span><i class="legend-sunk"></i>VERSENKT</span>
+              </div>
+            </aside>
+
+            <div class="boards-area">
+              <section class="board-station combat-station">
+                <div class="station-header">
+                  <div><span class="station-code">DEFENSE GRID</span><h3>Eigene Flotte</h3></div>
+                  <span class="board-condition friendly">GESICHERT</span>
+                </div>
+                <div class="board-frame compact-frame">
+                  <div class="coordinate-board" id="player-board" aria-label="Eigenes Spielfeld"></div>
+                </div>
+              </section>
+
+              <section class="board-station combat-station target-station">
+                <div class="station-header">
+                <div><span class="station-code">TARGET GRID</span><h3>Feindliches Gewässer</h3></div>
+                  <span class="board-condition hostile">SONAR ACTIVE</span>
+                </div>
+                <div class="board-frame compact-frame target-frame">
+                  <div class="coordinate-board target-board" id="enemy-board" aria-label="Gegnerisches Spielfeld"></div>
+                  <div class="sonar-ping" id="sonar-ping" aria-hidden="true"></div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="command-panel combat-log-panel">
+              <div class="panel-heading"><span>GEFECHTSPROTOKOLL</span><b>COMMS</b></div>
+              <div class="target-readout">
+                <span>ZIELKOORDINATEN</span>
+                <strong id="target-coordinate">— —</strong>
+              </div>
+              <div class="combat-log" id="combat-log" aria-live="polite"></div>
+              <div class="fire-order">
+                <span>FEUERBEFEHL</span>
+                <p id="fire-order-text">Ziel im feindlichen Raster wählen.</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <div class="impact-flash" id="impact-flash" aria-hidden="true"></div>
+      <div class="modal-backdrop client-settings-backdrop" id="client-settings-modal" hidden>
+        <section class="client-settings-panel" role="dialog" aria-modal="true" aria-labelledby="client-settings-title">
+          <header class="client-settings-header">
+            <div>
+              <span>LOCAL TERMINAL CONFIG // CLIENT</span>
+              <h2 id="client-settings-title">Client Settings</h2>
+            </div>
+            <button class="settings-close" id="client-settings-close" type="button" aria-label="Client Settings schließen">×</button>
+          </header>
+          <div class="theme-selection" role="group" aria-label="Theme auswählen">
+            <button class="theme-card theme-cyber" type="button" data-theme="cyber" aria-pressed="true">
+              <span class="theme-preview"><i></i><i></i><i></i></span>
+              <span><strong>CYBER COMMAND</strong><small>Neongrünes Geheimkommando</small></span>
+              <b>01</b>
+            </button>
+            <button class="theme-card theme-crimson" type="button" data-theme="crimson" aria-pressed="false">
+              <span class="theme-preview"><i></i><i></i><i></i></span>
+              <span><strong>CRIMSON ALERT</strong><small>Roter Gefechtsalarm</small></span>
+              <b>02</b>
+            </button>
+            <button class="theme-card theme-arctic" type="button" data-theme="arctic" aria-pressed="false">
+              <span class="theme-preview"><i></i><i></i><i></i></span>
+              <span><strong>ARCTIC SONAR</strong><small>Kaltes Polar-Taktiksystem</small></span>
+              <b>03</b>
+            </button>
+            <button class="theme-card theme-violet" type="button" data-theme="violet" aria-pressed="false">
+              <span class="theme-preview"><i></i><i></i><i></i></span>
+              <span><strong>VOID PROTOCOL</strong><small>Violettes Experimentalnetz</small></span>
+              <b>04</b>
+            </button>
+            <button class="theme-card theme-amber" type="button" data-theme="amber" aria-pressed="false">
+              <span class="theme-preview"><i></i><i></i><i></i></span>
+              <span><strong>AMBER WARROOM</strong><small>Klassische Operationszentrale</small></span>
+              <b>05</b>
+            </button>
+          </div>
+          <div class="debug-setting">
+            <div>
+              <span>TEST PROTOCOL // ABILITY OVERRIDE</span>
+              <strong>DEBUG MODE</strong>
+              <small>Alle Fähigkeiten kosten 0 Punkte und sind sofort verfügbar.</small>
+            </div>
+            <button class="debug-mode-toggle" id="debug-mode-toggle" type="button" data-debug-mode aria-pressed="false" aria-label="Debug Mode aktivieren">
+              <i></i><b>OFF</b>
+            </button>
+          </div>
+          <div class="settings-storage">EINSTELLUNGEN WERDEN AUF DIESEM GERÄT GESPEICHERT // LOCAL STORAGE</div>
+        </section>
+      </div>
+      <div class="shot-cinematic" id="shot-cinematic" role="status" aria-live="assertive" aria-hidden="true" hidden>
+        <canvas class="shot-cinematic-canvas" id="shot-cinematic-canvas" aria-hidden="true"></canvas>
+        <div class="shot-cinematic-vignette" aria-hidden="true"></div>
+        <div class="shot-cinematic-hud">
+          <div class="cinematic-topline">
+            <span id="cinematic-side">FIRE CONTROL ACTIVE</span>
+            <span id="cinematic-phase">TARGET LOCK</span>
+          </div>
+          <div class="cinematic-reticle" aria-hidden="true"><i></i><i></i></div>
+          <div class="cinematic-telemetry">
+            <span id="cinematic-order">MISSILE LAUNCH</span>
+            <strong id="cinematic-coordinate">TARGET: —</strong>
+            <small id="cinematic-range">RANGE // CALCULATING</small>
+          </div>
+          <div class="cinematic-result" id="cinematic-result"></div>
+        </div>
+      </div>
+      <div class="modal-backdrop" id="gameover-modal" role="dialog" aria-modal="true" aria-labelledby="gameover-title" hidden>
+        <div class="result-modal">
+          <div class="result-emblem" id="result-emblem">◆</div>
+          <p class="eyebrow" id="result-kicker">MISSION BEENDET</p>
+          <h2 id="gameover-title">GEFECHT GEWONNEN</h2>
+          <p id="gameover-message">Die feindliche Flotte wurde vollständig neutralisiert.</p>
+          <div class="result-stats">
+            <div><span>SCHÜSSE</span><strong id="stat-shots">0</strong></div>
+            <div><span>TREFFER</span><strong id="stat-hits">0</strong></div>
+            <div><span>QUOTE</span><strong id="stat-accuracy">0%</strong></div>
+          </div>
+          <button class="primary-button large" id="play-again-button" type="button">NEUES GEFECHT</button>
+          <button class="text-button" id="menu-button" type="button">ZURÜCK ZUM HAUPTMENÜ</button>
+        </div>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <audio id="background-music" src="assets/audio/cold-water-protocol.mp3" loop preload="auto"></audio>
+
+    <script src="js/config.js?v=okafor-abilities-1"></script>
+    <script src="js/game.js?v=okafor-abilities-1"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/animation-registry.js"></script>
+    <script src="js/animation-presets.js?v=okafor-abilities-1"></script>
+    <script src="js/cinematic.js?v=okafor-abilities-1"></script>
+    <script src="js/multiplayer.js?v=private-lobby-1"></script>
+    <script src="js/ui.js?v=private-lobby-1"></script>
+    <script src="js/main.js?v=mobile-layout-12"></script>
+  </body>
+</html>

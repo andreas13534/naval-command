@@ -1,0 +1,14 @@
+Use case: stylized-concept
+Asset type: production-ready high-resolution sprite sheet for a browser-based Battleship game
+
+Create one large professional sprite sheet containing exactly 11 distinct modern military naval vessels, each shown in a mathematically strict orthographic 90-degree top-down view. Every ship must be horizontal, bow pointing right, centered in its own invisible rectangular cell, fully visible, with generous separation and no overlap.
+
+Arrange the vessels in a clean 3-column by 4-row atlas layout, leaving one cell empty. Use consistent scale based on a virtual 128 x 128 pixel game-grid unit. Ship beam must remain approximately within one grid unit. Relative lengths: aircraft carrier 5 units; battleship 4; cruiser 3; submarine 3; destroyer 2; stealth ship 3; missile frigate 3; patrol boat 2; landing ship 4; heavy missile cruiser 4; experimental command ship 5.
+
+All 11 silhouettes must be clearly different and readable at small game-piece scale. Modern realistic naval engineering, serious cyber-military marine command-center aesthetic. Dark gray steel, anthracite and black armor surfaces, cold turquoise reflections, subtle neon-green technical indicator lights. Add crisp readable details appropriate to each class: radar arrays, gun turrets, VLS missile modules, deck markings without alphanumeric characters, warning lights, hatches, vents, restrained wear and edge scuffs. Aircraft carrier has an empty flight deck with no aircraft or helicopters. Submarine remains a top-down surfaced asset silhouette. Experimental command ship should look advanced but plausible, not fantastical.
+
+Lighting: uniform neutral overhead studio illumination only, no directional cast shadows, no shadow outside any vessel, no ambient scene. Edges: razor-sharp clean cutout contours, high detail, production game-asset clarity.
+
+Background: perfectly flat solid #ff00ff chroma-key background for later removal. The entire background must be exactly one uniform magenta color with no gradients, texture, reflection, floor plane, lighting variation, glow, or shadow. Do not use #ff00ff anywhere on the ships. Keep every ship separated from the background with crisp edges.
+
+Avoid: text, labels, names, numbers, arrows, UI, grid lines, cell borders, ocean, water, wakes, explosions, smoke, aircraft, helicopters, people, flags, overlapping ships, cropped vessels, distorted shapes, fantasy styling, cartoon styling, blur, perspective, angled camera, oblique view, side view, external shadows, watermark, logo.

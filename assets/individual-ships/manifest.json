@@ -1,0 +1,22 @@
+{
+  "assetPack": "Cyber Naval Individual Ships",
+  "gridUnitPx": 128,
+  "orientation": "strict top-down, stern left, bow right",
+  "transparentMastersDirectory": "png",
+  "gridReadyDirectory": "grid-ready-128",
+  "ships": [
+    {"id":"patrol-interceptor","name":"Patrol Interceptor","file":"01-patrol-interceptor-2x1.png","gridWidth":2,"gridHeight":1},
+    {"id":"stealth-corvette","name":"Stealth Corvette","file":"02-stealth-corvette-2x1.png","gridWidth":2,"gridHeight":1},
+    {"id":"fast-destroyer","name":"Fast Destroyer","file":"03-fast-destroyer-3x1.png","gridWidth":3,"gridHeight":1},
+    {"id":"attack-submarine","name":"Attack Submarine","file":"04-attack-submarine-3x1.png","gridWidth":3,"gridHeight":1},
+    {"id":"missile-frigate","name":"Missile Frigate","file":"05-missile-frigate-3x1.png","gridWidth":3,"gridHeight":1},
+    {"id":"heavy-missile-cruiser","name":"Heavy Missile Cruiser","file":"06-heavy-missile-cruiser-4x1.png","gridWidth":4,"gridHeight":1},
+    {"id":"modern-battleship","name":"Modern Battleship","file":"07-modern-battleship-4x1.png","gridWidth":4,"gridHeight":1},
+    {"id":"amphibious-landing-ship","name":"Amphibious Landing Ship","file":"08-amphibious-landing-ship-4x1.png","gridWidth":4,"gridHeight":1},
+    {"id":"aircraft-carrier","name":"Aircraft Carrier","file":"09-aircraft-carrier-5x1.png","gridWidth":5,"gridHeight":1},
+    {"id":"experimental-command-ship","name":"Experimental Command Ship","file":"10-experimental-command-ship-5x1.png","gridWidth":5,"gridHeight":1},
+    {"id":"square-catamaran","name":"Square Catamaran Defense Ship","file":"11-square-catamaran-2x2.png","gridWidth":2,"gridHeight":2},
+    {"id":"fork-ship","name":"Fork Ship","file":"12-fork-ship-3x2.png","gridWidth":3,"gridHeight":2},
+    {"id":"floating-fortress","name":"Floating Fortress","file":"13-floating-fortress-7x2.png","gridWidth":7,"gridHeight":2}
+  ]
+}
